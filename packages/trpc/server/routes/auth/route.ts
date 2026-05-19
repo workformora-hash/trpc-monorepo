@@ -1,11 +1,14 @@
 import { userService } from "../../services";
 import { publicProcedure, router } from "../../trpc";
 import { generatePath } from "../../utils/path-generator";
+import { TRPCError } from "@trpc/server";
 import { 
   createUserWithEmailAndPasswordInputModel, 
   createUserwithEmailAndPasswordOutputModel,
   verifyEmailInputModel,
-  verifyEmailOutputModel
+  verifyEmailOutputModel,
+  loginWithEmailAndPasswordInputModel,
+  loginWithEmailAndPasswordOutputModel
 } from "./model";
 
 const TAGS = ["Authentication"];
@@ -51,6 +54,46 @@ export const authRouter = router({
       const { success } = await userService.verifyEmail(token);
       return {
         success
+      }
+    }),
+
+  loginWithEmailAndPassword: publicProcedure.meta(
+    {
+      openapi:
+      {
+        method: "POST",
+        path: getPath("/loginWithEmailAndPassword"),
+        tags: TAGS
+      }
+    })
+    .input(loginWithEmailAndPasswordInputModel)
+    .output(loginWithEmailAndPasswordOutputModel)
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const ipAddress = ctx.req?.ip || (ctx.req?.headers["x-forwarded-for"] as string) || undefined;
+        const userAgent = ctx.req?.headers["user-agent"] || undefined;
+
+        const result = await userService.loginWithEmailAndPassword(input, {
+          ipAddress,
+          userAgent,
+        });
+
+        // Set httpOnly cookie securely if response object is available in context
+        if (ctx.res) {
+          ctx.res.cookie("session_token", result.token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            expires: result.session.expiresAt,
+          });
+        }
+
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: error.message || "Invalid email or password",
+        });
       }
     }),
 });

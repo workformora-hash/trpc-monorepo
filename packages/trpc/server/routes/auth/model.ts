@@ -27,4 +27,26 @@ export const verifyEmailOutputModel = z.object({
     success: z.boolean()
 })
 
+export const loginWithEmailAndPasswordInputModel = z.object({
+    email: z.string()
+        .email("Please provide a valid email address")
+        .describe("Email Address of the User"),
+    password: z.string()
+        .min(1, "Password is required")
+        .describe("Password of the User"),
+})
 
+export const loginWithEmailAndPasswordOutputModel = z.object({
+    success: z.boolean(),
+    token: z.string(),
+    session: z.object({
+        id: z.string(),
+        expiresAt: z.date(),
+    }),
+    user: z.object({
+        id: z.string(),
+        name: z.string(),
+        email: z.string(),
+        role: z.string(),
+    })
+})

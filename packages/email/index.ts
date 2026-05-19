@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { env } from "./env";
 import * as React from "react";
 import { VerifyEmail } from "./templates/VerifyEmail";
+import { PasswordReset } from "./templates/PasswordReset";
 
 export const resend = new Resend(env.RESEND_API_KEY);
 
@@ -47,6 +48,14 @@ export class EmailService {
       to,
       subject: "Verify your email address",
       react: React.createElement(VerifyEmail, { name, verificationLink }),
+    });
+  }
+
+  public async sendPasswordResetEmail(to: string, name: string, resetLink: string) {
+    return this.sendEmail({
+      to,
+      subject: "Reset your password",
+      react: React.createElement(PasswordReset, { name, resetLink }),
     });
   }
 }

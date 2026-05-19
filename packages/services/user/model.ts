@@ -20,9 +20,22 @@ export const createUserWithEmailAndPasswordInput = z.object({
              .min(8, "Password must be at least 8 characters long")
              .max(128, "Password must be at most 128 characters long")
 })
+export const loginWithEmailAndPasswordInput = z.object({
+  email: z.string()
+          .email("Please provide a valid email address")
+          .describe("Email Address of the User"),
+  password: z.string()
+             .min(1, "Password is required")
+             .describe("Password of the User"),
+});
+
 export type CreateUserWithEmailAndPasswordInputType = z.infer<
   typeof createUserWithEmailAndPasswordInput
+>;
+export type LoginWithEmailAndPasswordInputType = z.infer<
+  typeof loginWithEmailAndPasswordInput
 >;
 export type GetAuthenticationMethodOutputSchema = z.infer<
   typeof getAuthenticationMethodOutputSchema
 >;
+
