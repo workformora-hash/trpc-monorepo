@@ -12,13 +12,26 @@ export const createUserWithEmailAndPasswordInput = z.object({
          .max(128, "Name must be at most 128 characters long")
          .min(3, "Name must be at least 3 characters long"),
 
-  email: z.email()
+  email: z.string()
+          .email("Please provide a valid email address")
           .describe("Email Address of the User"),
 
   password: z.string()
              .describe("Password of the User")
              .min(8, "Password must be at least 8 characters long")
              .max(128, "Password must be at most 128 characters long")
+             .refine((val) => /[A-Z]/.test(val), {
+               message: "Password must contain at least one uppercase letter",
+             })
+             .refine((val) => /[a-z]/.test(val), {
+               message: "Password must contain at least one lowercase letter",
+             })
+             .refine((val) => /[0-9]/.test(val), {
+               message: "Password must contain at least one number",
+             })
+             .refine((val) => /[^A-Za-z0-9]/.test(val), {
+               message: "Password must contain at least one special character",
+             })
 })
 export const loginWithEmailAndPasswordInput = z.object({
   email: z.string()
