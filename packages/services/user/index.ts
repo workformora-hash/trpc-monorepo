@@ -1,4 +1,4 @@
-import { db, eq } from "@repo/database";
+import { db, eq, and, gt } from "@repo/database";
 import { usersTable } from "@repo/database/models/user";
 import { credentialsTable } from "@repo/database/models/credentials";
 import { emailVerificationTokensTable } from "@repo/database/models/email-verification-tokens";
@@ -11,6 +11,46 @@ import crypto from "crypto";
 import { emailService } from "@repo/email";
 
 class UserService {
+  public async verifyEmail(token: string) {
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const [tokenRecord] = await db
+      .select()
+      .from(emailVerificationTokensTable)
+      .where(
+        and(
+          eq(emailVerificationTokensTable.tokenHash, tokenHash),
+          eq(emailVerificationTokensTable.isUsed, false),
+          eq(emailVerificationTokensTable.type, "email_verification"),
+          gt(emailVerificationTokensTable.expiresAt, new Date()), // Token should not be expired
+        )
+      )
+      .limit(1);
+
+    if (!tokenRecord) {
+      throw new Error("Invalid or expired token.");
+    }
+
+    // Update user's email verification status
+    await db
+      .update(usersTable)
+      .set({
+        isEmailVerified: true,
+        emailVerifiedAt: new Date(),
+      })
+      .where(eq(usersTable.id, tokenRecord.userId));
+
+    // Mark token as used
+    await db
+      .update(emailVerificationTokensTable)
+      .set({
+        isUsed: true,
+        usedAt: new Date(),
+      })
+      .where(eq(emailVerificationTokensTable.id, tokenRecord.id));
+
+    return { success: true };
+  }
+
   private async getUserByEmail(email: string) {
     const result = await db.select().from(usersTable).where(eq(usersTable.email, email))
     if (!result || result.length === 0) {

@@ -18,3 +18,13 @@ export const createUserwithEmailAndPasswordOutputModel = z.object({
     id : z.string()
 })
 
+export const verifyEmailInputModel = z.object({
+    token: z.string()
+        .describe("Email verification token"),
+})
+
+export const verifyEmailOutputModel = z.object({
+    success: z.boolean()
+})
+
+
