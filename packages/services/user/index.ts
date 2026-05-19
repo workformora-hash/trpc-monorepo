@@ -334,6 +334,56 @@ class UserService {
 
     return { success: true };
   }
+
+  public async resetPassword(payload: { token: string; password: string }) {
+    const { token, password } = payload;
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const [tokenRecord] = await db
+      .select()
+      .from(passwordResetTokensTable)
+      .where(
+        and(
+          eq(passwordResetTokensTable.tokenHash, tokenHash),
+          eq(passwordResetTokensTable.isUsed, false),
+          gt(passwordResetTokensTable.expiresAt, new Date())
+        )
+      )
+      .limit(1);
+
+    if (!tokenRecord) {
+      throw new Error("Invalid or expired password reset token");
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Update credentials
+    await db
+      .update(credentialsTable)
+      .set({
+        passwordHash: hashedPassword,
+        failedAttempts: 0,
+        lockedUntil: null,
+      })
+      .where(eq(credentialsTable.userId, tokenRecord.userId));
+
+    // Mark token as used
+    await db
+      .update(passwordResetTokensTable)
+      .set({
+        isUsed: true,
+        usedAt: new Date(),
+      })
+      .where(eq(passwordResetTokensTable.id, tokenRecord.id));
+
+    // Revoke all active sessions for security
+    await db
+      .delete(sessionsTable)
+      .where(eq(sessionsTable.userId, tokenRecord.userId));
+
+    return { success: true };
+  }
 }
 
 export default UserService;

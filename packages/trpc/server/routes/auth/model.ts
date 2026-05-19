@@ -70,3 +70,16 @@ export const forgotPasswordInputModel = z.object({
 export const forgotPasswordOutputModel = z.object({
     success: z.boolean()
 })
+
+export const resetPasswordInputModel = z.object({
+    token: z.string()
+        .describe("Password reset token"),
+    password: z.string()
+        .describe("New Password of the User")
+        .min(8, "Password must be at least 8 characters long")
+        .max(128, "Password must be at most 128 characters long"),
+})
+
+export const resetPasswordOutputModel = z.object({
+    success: z.boolean()
+})

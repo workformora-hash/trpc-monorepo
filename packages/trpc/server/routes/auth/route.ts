@@ -12,7 +12,9 @@ import {
   resendVerificationEmailInputModel,
   resendVerificationEmailOutputModel,
   forgotPasswordInputModel,
-  forgotPasswordOutputModel
+  forgotPasswordOutputModel,
+  resetPasswordInputModel,
+  resetPasswordOutputModel
 } from "./model";
 
 const TAGS = ["Authentication"];
@@ -144,6 +146,28 @@ export const authRouter = router({
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: error.message || "Failed to process forgot password request",
+        });
+      }
+    }),
+
+  resetPassword: publicProcedure.meta(
+    {
+      openapi:
+      {
+        method: "POST",
+        path: getPath("/resetPassword"),
+        tags: TAGS
+      }
+    })
+    .input(resetPasswordInputModel)
+    .output(resetPasswordOutputModel)
+    .mutation(async ({ input }) => {
+      try {
+        return await userService.resetPassword(input);
+      } catch (error: any) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: error.message || "Failed to reset password",
         });
       }
     }),
