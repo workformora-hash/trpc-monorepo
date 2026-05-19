@@ -384,6 +384,16 @@ class UserService {
 
     return { success: true };
   }
+
+  public async logout(token: string) {
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    await db
+      .delete(sessionsTable)
+      .where(eq(sessionsTable.tokenHash, tokenHash));
+
+    return { success: true };
+  }
 }
 
 export default UserService;

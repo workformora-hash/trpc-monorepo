@@ -83,3 +83,9 @@ export const resetPasswordInputModel = z.object({
 export const resetPasswordOutputModel = z.object({
     success: z.boolean()
 })
+
+export const logoutInputModel = z.void();
+
+export const logoutOutputModel = z.object({
+    success: z.boolean()
+})

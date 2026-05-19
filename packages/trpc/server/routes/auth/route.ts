@@ -14,7 +14,9 @@ import {
   forgotPasswordInputModel,
   forgotPasswordOutputModel,
   resetPasswordInputModel,
-  resetPasswordOutputModel
+  resetPasswordOutputModel,
+  logoutInputModel,
+  logoutOutputModel
 } from "./model";
 
 const TAGS = ["Authentication"];
@@ -170,5 +172,46 @@ export const authRouter = router({
           message: error.message || "Failed to reset password",
         });
       }
+    }),
+
+  logout: publicProcedure.meta(
+    {
+      openapi:
+      {
+        method: "POST",
+        path: getPath("/logout"),
+        tags: TAGS
+      }
+    })
+    .input(logoutInputModel)
+    .output(logoutOutputModel)
+    .mutation(async ({ ctx }) => {
+      const cookieHeader = ctx.req?.headers?.cookie;
+      let sessionToken: string | undefined;
+      if (cookieHeader) {
+        const cookies = Object.fromEntries(
+          cookieHeader.split(";").map((c: string) => {
+            const parts = c.trim().split("=");
+            return [parts[0], parts.slice(1).join("=")];
+          })
+        );
+        sessionToken = cookies["session_token"];
+      }
+
+      if (sessionToken) {
+        await userService.logout(sessionToken).catch((err) => {
+          console.error("Failed to revoke session on logout:", err);
+        });
+      }
+
+      if (ctx.res) {
+        ctx.res.clearCookie("session_token", {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+        });
+      }
+
+      return { success: true };
     }),
 });
