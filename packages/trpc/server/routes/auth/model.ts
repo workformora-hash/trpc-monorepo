@@ -50,3 +50,13 @@ export const loginWithEmailAndPasswordOutputModel = z.object({
         role: z.string(),
     })
 })
+
+export const resendVerificationEmailInputModel = z.object({
+    email: z.string()
+        .email("Please provide a valid email address")
+        .describe("Email Address of the User"),
+})
+
+export const resendVerificationEmailOutputModel = z.object({
+    success: z.boolean()
+})

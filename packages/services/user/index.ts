@@ -276,6 +276,36 @@ class UserService {
       },
     };
   }
+
+  public async resendVerificationEmail(email: string) {
+    const user = await this.getUserByEmail(email);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    if (user.isEmailVerified) {
+      throw new Error("Email is already verified");
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await db.insert(emailVerificationTokensTable).values({
+      userId: user.id,
+      tokenHash,
+      type: "email_verification",
+      expiresAt,
+    });
+
+    const baseUrl = env.CLIENT_URL;
+    const verificationLink = `${baseUrl}/verify-email?token=${token}`;
+
+    emailService.sendVerificationEmail(user.email, user.name, verificationLink)
+      .catch((err) => console.error("Failed to send verification email:", err));
+
+    return { success: true };
+  }
 }
 
 export default UserService;

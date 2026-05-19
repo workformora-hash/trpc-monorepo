@@ -8,7 +8,9 @@ import {
   verifyEmailInputModel,
   verifyEmailOutputModel,
   loginWithEmailAndPasswordInputModel,
-  loginWithEmailAndPasswordOutputModel
+  loginWithEmailAndPasswordOutputModel,
+  resendVerificationEmailInputModel,
+  resendVerificationEmailOutputModel
 } from "./model";
 
 const TAGS = ["Authentication"];
@@ -93,6 +95,29 @@ export const authRouter = router({
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: error.message || "Invalid email or password",
+        });
+      }
+    }),
+
+  resendVerificationEmail: publicProcedure.meta(
+    {
+      openapi:
+      {
+        method: "POST",
+        path: getPath("/resendVerificationEmail"),
+        tags: TAGS
+      }
+    })
+    .input(resendVerificationEmailInputModel)
+    .output(resendVerificationEmailOutputModel)
+    .mutation(async ({ input }) => {
+      try {
+        const { email } = input;
+        return await userService.resendVerificationEmail(email);
+      } catch (error: any) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: error.message || "Failed to resend verification email",
         });
       }
     }),
