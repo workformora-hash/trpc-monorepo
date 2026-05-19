@@ -1,5 +1,7 @@
 import { Resend } from "resend";
 import { env } from "./env";
+import * as React from "react";
+import { VerifyEmail } from "./templates/VerifyEmail";
 
 export const resend = new Resend(env.RESEND_API_KEY);
 
@@ -8,6 +10,7 @@ export interface SendEmailPayload {
   subject: string;
   html?: string;
   text?: string;
+  react?: React.ReactElement | null;
 }
 
 export class EmailService {
@@ -25,7 +28,8 @@ export class EmailService {
         subject: payload.subject,
         html: payload.html,
         text: payload.text,
-      } as any);
+        react: payload.react,
+      });
 
       if (error) {
         throw new Error(`Failed to send email: ${error.message}`);
@@ -36,6 +40,14 @@ export class EmailService {
       console.error("Email sending error:", error);
       throw error;
     }
+  }
+
+  public async sendVerificationEmail(to: string, name: string, verificationLink: string) {
+    return this.sendEmail({
+      to,
+      subject: "Verify your email address",
+      react: React.createElement(VerifyEmail, { name, verificationLink }),
+    });
   }
 }
 
