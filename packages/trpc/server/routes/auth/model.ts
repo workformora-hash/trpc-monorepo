@@ -89,3 +89,14 @@ export const logoutInputModel = z.void();
 export const logoutOutputModel = z.object({
     success: z.boolean()
 })
+
+export const getCurrentUserInputModel = z.void();
+
+export const getCurrentUserOutputModel = z.object({
+    user: z.object({
+        id: z.string(),
+        name: z.string(),
+        email: z.string(),
+        role: z.string(),
+    })
+}).nullable()

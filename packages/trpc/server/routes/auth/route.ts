@@ -16,7 +16,9 @@ import {
   resetPasswordInputModel,
   resetPasswordOutputModel,
   logoutInputModel,
-  logoutOutputModel
+  logoutOutputModel,
+  getCurrentUserInputModel,
+  getCurrentUserOutputModel
 } from "./model";
 
 const TAGS = ["Authentication"];
@@ -213,5 +215,51 @@ export const authRouter = router({
       }
 
       return { success: true };
+    }),
+
+  getCurrentUser: publicProcedure.meta(
+    {
+      openapi:
+      {
+        method: "GET",
+        path: getPath("/getCurrentUser"),
+        tags: TAGS
+      }
+    })
+    .input(getCurrentUserInputModel)
+    .output(getCurrentUserOutputModel)
+    .query(async ({ ctx }) => {
+      const cookieHeader = ctx.req?.headers?.cookie;
+      let sessionToken: string | undefined;
+      if (cookieHeader) {
+        const cookies = Object.fromEntries(
+          cookieHeader.split(";").map((c: string) => {
+            const parts = c.trim().split("=");
+            return [parts[0], parts.slice(1).join("=")];
+          })
+        );
+        sessionToken = cookies["session_token"];
+      }
+
+      if (!sessionToken) {
+        return null;
+      }
+
+      const result = await userService.getCurrentUser(sessionToken);
+      if (!result) {
+        // Clear invalid/expired cookie
+        if (ctx.res) {
+          ctx.res.clearCookie("session_token", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+          });
+        }
+        return null;
+      }
+
+      return {
+        user: result.user,
+      };
     }),
 });

@@ -394,6 +394,56 @@ class UserService {
 
     return { success: true };
   }
+
+  public async getCurrentUser(token: string) {
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const [sessionWithUser] = await db
+      .select({
+        session: sessionsTable,
+        user: usersTable,
+      })
+      .from(sessionsTable)
+      .innerJoin(usersTable, eq(sessionsTable.userId, usersTable.id))
+      .where(
+        and(
+          eq(sessionsTable.tokenHash, tokenHash),
+          gt(sessionsTable.expiresAt, new Date()),
+          sql`${usersTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!sessionWithUser) {
+      return null;
+    }
+
+    // Update lastActiveAt periodically if it has been > 5 mins
+    const now = new Date();
+    if (
+      !sessionWithUser.session.lastActiveAt ||
+      now.getTime() - sessionWithUser.session.lastActiveAt.getTime() > 5 * 60 * 1000
+    ) {
+      await db
+        .update(sessionsTable)
+        .set({ lastActiveAt: now })
+        .where(eq(sessionsTable.id, sessionWithUser.session.id))
+        .catch((err) => console.error("Failed to update lastActiveAt:", err));
+    }
+
+    return {
+      session: {
+        id: sessionWithUser.session.id,
+        expiresAt: sessionWithUser.session.expiresAt,
+      },
+      user: {
+        id: sessionWithUser.user.id,
+        name: sessionWithUser.user.name,
+        email: sessionWithUser.user.email,
+        role: sessionWithUser.user.role,
+      },
+    };
+  }
 }
 
 export default UserService;
