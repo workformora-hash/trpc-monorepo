@@ -10,7 +10,9 @@ import {
   loginWithEmailAndPasswordInputModel,
   loginWithEmailAndPasswordOutputModel,
   resendVerificationEmailInputModel,
-  resendVerificationEmailOutputModel
+  resendVerificationEmailOutputModel,
+  forgotPasswordInputModel,
+  forgotPasswordOutputModel
 } from "./model";
 
 const TAGS = ["Authentication"];
@@ -118,6 +120,30 @@ export const authRouter = router({
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: error.message || "Failed to resend verification email",
+        });
+      }
+    }),
+
+  forgotPassword: publicProcedure.meta(
+    {
+      openapi:
+      {
+        method: "POST",
+        path: getPath("/forgotPassword"),
+        tags: TAGS
+      }
+    })
+    .input(forgotPasswordInputModel)
+    .output(forgotPasswordOutputModel)
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const { email } = input;
+        const ipAddress = ctx.req?.ip || (ctx.req?.headers["x-forwarded-for"] as string) || undefined;
+        return await userService.forgotPassword(email, { ipAddress });
+      } catch (error: any) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: error.message || "Failed to process forgot password request",
         });
       }
     }),

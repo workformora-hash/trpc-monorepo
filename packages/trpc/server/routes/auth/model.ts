@@ -60,3 +60,13 @@ export const resendVerificationEmailInputModel = z.object({
 export const resendVerificationEmailOutputModel = z.object({
     success: z.boolean()
 })
+
+export const forgotPasswordInputModel = z.object({
+    email: z.string()
+        .email("Please provide a valid email address")
+        .describe("Email Address of the User"),
+})
+
+export const forgotPasswordOutputModel = z.object({
+    success: z.boolean()
+})

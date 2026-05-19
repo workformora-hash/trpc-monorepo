@@ -3,6 +3,7 @@ import { usersTable } from "@repo/database/models/user";
 import { credentialsTable } from "@repo/database/models/credentials";
 import { emailVerificationTokensTable } from "@repo/database/models/email-verification-tokens";
 import { sessionsTable } from "@repo/database/models/sessions";
+import { passwordResetTokensTable } from "@repo/database/models/password-reset-tokens";
 import { env } from "../env";
 import { googleOAuth2Client } from "../clients/google-oauth";
 import { 
@@ -303,6 +304,33 @@ class UserService {
 
     emailService.sendVerificationEmail(user.email, user.name, verificationLink)
       .catch((err) => console.error("Failed to send verification email:", err));
+
+    return { success: true };
+  }
+
+  public async forgotPassword(email: string, context: { ipAddress?: string }) {
+    const user = await this.getUserByEmail(email);
+    // Silent return for security to prevent user enumeration
+    if (!user) {
+      return { success: true };
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await db.insert(passwordResetTokensTable).values({
+      userId: user.id,
+      tokenHash,
+      ipAddress: context.ipAddress || null,
+      expiresAt,
+    });
+
+    const baseUrl = env.CLIENT_URL;
+    const resetLink = `${baseUrl}/reset-password?token=${token}`;
+
+    emailService.sendPasswordResetEmail(user.email, user.name, resetLink)
+      .catch((err) => console.error("Failed to send password reset email:", err));
 
     return { success: true };
   }
