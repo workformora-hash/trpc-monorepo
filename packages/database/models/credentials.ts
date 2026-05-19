@@ -7,16 +7,16 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { users } from "./user";
+import { usersTable } from "./user";
 import { timestamps } from "../helpers";
 
-export const credentials = pgTable(
+export const credentialsTable = pgTable(
   "credentials",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" })
+      .references(() => usersTable.id, { onDelete: "cascade" })
       .unique(), // 1-to-1 with users
 
     passwordHash: varchar("password_hash", { length: 256 }).notNull(),
@@ -35,12 +35,12 @@ export const credentials = pgTable(
   })
 );
 
-export const credentialsRelations = relations(credentials, ({ one }) => ({
-  user: one(users, {
-    fields: [credentials.userId],
-    references: [users.id],
+export const credentialsRelations = relations(credentialsTable, ({ one }) => ({
+  user: one(usersTable, {
+    fields: [credentialsTable.userId],
+    references: [usersTable.id],
   }),
 }));
 
-export type Credential = typeof credentials.$inferSelect;
-export type NewCredential = typeof credentials.$inferInsert;
+export type Credential = typeof credentialsTable.$inferSelect;
+export type NewCredential = typeof credentialsTable.$inferInsert;

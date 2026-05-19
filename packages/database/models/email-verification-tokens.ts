@@ -8,15 +8,15 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { tokenTypeEnum } from "../enums";
-import { users } from "./user";
+import { usersTable } from "./user";
 
-export const emailVerificationTokens = pgTable(
+export const emailVerificationTokensTable = pgTable(
   "email_verification_tokens",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => usersTable.id, { onDelete: "cascade" }),
 
     tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
     type: tokenTypeEnum("type").notNull().default("email_verification"),
@@ -38,14 +38,14 @@ export const emailVerificationTokens = pgTable(
 );
 
 export const emailVerificationTokensRelations = relations(
-  emailVerificationTokens,
+  emailVerificationTokensTable,
   ({ one }) => ({
-    user: one(users, {
-      fields: [emailVerificationTokens.userId],
-      references: [users.id],
+    user: one(usersTable, {
+      fields: [emailVerificationTokensTable.userId],
+      references: [usersTable.id],
     }),
   })
 );
 
-export type EmailVerificationToken = typeof emailVerificationTokens.$inferSelect;
-export type NewEmailVerificationToken = typeof emailVerificationTokens.$inferInsert;
+export type EmailVerificationToken = typeof emailVerificationTokensTable.$inferSelect;
+export type NewEmailVerificationToken = typeof emailVerificationTokensTable.$inferInsert;

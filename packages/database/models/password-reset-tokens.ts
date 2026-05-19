@@ -7,15 +7,15 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { users } from "./user";
+import { usersTable } from "./user";
 
-export const passwordResetTokens = pgTable(
+export const passwordResetTokensTable = pgTable(
   "password_reset_tokens",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => usersTable.id, { onDelete: "cascade" }),
 
     tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
     ipAddress: varchar("ip_address", { length: 45 }), // for abuse detection across accounts
@@ -34,14 +34,14 @@ export const passwordResetTokens = pgTable(
 );
 
 export const passwordResetTokensRelations = relations(
-  passwordResetTokens,
+  passwordResetTokensTable,
   ({ one }) => ({
-    user: one(users, {
-      fields: [passwordResetTokens.userId],
-      references: [users.id],
+    user: one(usersTable, {
+      fields: [passwordResetTokensTable.userId],
+      references: [usersTable.id],
     }),
   })
 );
 
-export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
-export type NewPasswordResetToken = typeof passwordResetTokens.$inferInsert;
+export type PasswordResetToken = typeof passwordResetTokensTable.$inferSelect;
+export type NewPasswordResetToken = typeof passwordResetTokensTable.$inferInsert;

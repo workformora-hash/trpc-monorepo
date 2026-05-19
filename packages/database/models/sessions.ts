@@ -8,16 +8,16 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { users } from "./user";
-import type { refreshTokens } from "./refresh-tokens";
+import { usersTable } from "./user";
+import { refreshTokensTable } from "./refresh-tokens";
 
-export const sessions = pgTable(
+export const sessionsTable = pgTable(
   "sessions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => usersTable.id, { onDelete: "cascade" }),
 
     // SHA-256 hash of the raw token — never store the raw value
     tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
@@ -44,13 +44,13 @@ export const sessions = pgTable(
   })
 );
 
-export const sessionsRelations = relations(sessions, ({ one, many }) => ({
-  user: one(users, {
-    fields: [sessions.userId],
-    references: [users.id],
+export const sessionsRelations = relations(sessionsTable, ({ one, many }) => ({
+  user: one(usersTable, {
+    fields: [sessionsTable.userId],
+    references: [usersTable.id],
   }),
-  refreshTokens: many(refreshTokens),
+  refreshTokens: many(refreshTokensTable),
 }));
 
-export type Session = typeof sessions.$inferSelect;
-export type NewSession = typeof sessions.$inferInsert;
+export type Session = typeof sessionsTable.$inferSelect;
+export type NewSession = typeof sessionsTable.$inferInsert;

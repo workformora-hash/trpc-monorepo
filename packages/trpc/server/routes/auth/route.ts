@@ -1,19 +1,32 @@
-import { z, zodUndefinedModel } from "../../schema";
 import { userService } from "../../services";
-import { getAuthenticationMethodOutputSchema } from "@repo/services/user/model";
 import { publicProcedure, router } from "../../trpc";
 import { generatePath } from "../../utils/path-generator";
+import { createUserWithEmailAndPasswordInputModel, createUserwithEmailAndPasswordOutputModel } from "./model";
 
 const TAGS = ["Authentication"];
 const getPath = generatePath("/authentication");
 
 export const authRouter = router({
-  getSupportedAuthenticationProviders: publicProcedure
-    .meta({ openapi: { method: "GET", path: getPath("/supported-providers"), tags: TAGS } })
-    .input(zodUndefinedModel)
-    .output(z.readonly(z.array(getAuthenticationMethodOutputSchema)))
-    .query(async () => {
-      const supportedMethods = await userService.getAuthenticationMethods();
-      return supportedMethods;
+  createUserwithEmailAndPassword: publicProcedure.meta(
+    {
+      openapi:
+      {
+        method: "POST",
+        path: getPath("/createUserwithEmailAndPassword"),
+        tags: TAGS
+      }
+    })
+    .input(createUserWithEmailAndPasswordInputModel)
+    .output(createUserwithEmailAndPasswordOutputModel)
+    .mutation(async ({ input }) => {
+      const { name, email, password } = input;
+      const { id } = await userService.createUserWithEmailAndPassword({
+        name,
+        email,
+        password
+      });
+      return {
+        id
+      }
     }),
 });

@@ -7,15 +7,15 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { sessions } from "./sessions";
+import { sessionsTable } from "./sessions";
 
-export const refreshTokens = pgTable(
+export const refreshTokensTable = pgTable(
   "refresh_tokens",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     sessionId: uuid("session_id")
       .notNull()
-      .references(() => sessions.id, { onDelete: "cascade" }),
+      .references(() => sessionsTable.id, { onDelete: "cascade" }),
 
     // SHA-256 hash of the raw token — never store the raw value
     tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
@@ -33,12 +33,12 @@ export const refreshTokens = pgTable(
   })
 );
 
-export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
-  session: one(sessions, {
-    fields: [refreshTokens.sessionId],
-    references: [sessions.id],
+export const refreshTokensRelations = relations(refreshTokensTable, ({ one }) => ({
+  session: one(sessionsTable, {
+    fields: [refreshTokensTable.sessionId],
+    references: [sessionsTable.id],
   }),
 }));
 
-export type RefreshToken = typeof refreshTokens.$inferSelect;
-export type NewRefreshToken = typeof refreshTokens.$inferInsert;
+export type RefreshToken = typeof refreshTokensTable.$inferSelect;
+export type NewRefreshToken = typeof refreshTokensTable.$inferInsert;

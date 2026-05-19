@@ -9,16 +9,16 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { oauthProviderEnum } from "../enums";
-import { users } from "./user";
+import { usersTable } from "./user";
 import { timestamps } from "../helpers";
 
-export const oauthAccounts = pgTable(
+export const oauthAccountsTable = pgTable(
   "oauth_accounts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => usersTable.id, { onDelete: "cascade" }),
 
     provider: oauthProviderEnum("provider").notNull(),
     providerAccountId: varchar("provider_account_id", { length: 256 }).notNull(),
@@ -39,12 +39,12 @@ export const oauthAccounts = pgTable(
   })
 );
 
-export const oauthAccountsRelations = relations(oauthAccounts, ({ one }) => ({
-  user: one(users, {
-    fields: [oauthAccounts.userId],
-    references: [users.id],
+export const oauthAccountsRelations = relations(oauthAccountsTable, ({ one }) => ({
+  user: one(usersTable, {
+    fields: [oauthAccountsTable.userId],
+    references: [usersTable.id],
   }),
 }));
 
-export type OauthAccount = typeof oauthAccounts.$inferSelect;
-export type NewOauthAccount = typeof oauthAccounts.$inferInsert;
+export type OauthAccount = typeof oauthAccountsTable.$inferSelect;
+export type NewOauthAccount = typeof oauthAccountsTable.$inferInsert;

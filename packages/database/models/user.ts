@@ -11,13 +11,13 @@ import {
 import { relations, sql } from "drizzle-orm";
 import { userRoleEnum } from "../enums";
 import { timestamps, softDelete } from "../helpers";
-import { credentials } from "./credentials";
-import { oauthAccounts } from "./oauth-accounts";
-import { sessions } from "./sessions";
-import { emailVerificationTokens } from "./email-verification-tokens";
-import { passwordResetTokens } from "./password-reset-tokens";
+import { credentialsTable } from "./credentials";
+import { oauthAccountsTable } from "./oauth-accounts";
+import { sessionsTable } from "./sessions";
+import { emailVerificationTokensTable } from "./email-verification-tokens";
+import { passwordResetTokensTable } from "./password-reset-tokens";
 
-export const users = pgTable(
+export const usersTable = pgTable(
   "users",
   {
     id: uuid("id").primaryKey().defaultRandom(),
@@ -48,16 +48,16 @@ export const users = pgTable(
   })
 );
 
-export const usersRelations = relations(users, ({ one, many }) => ({
-  credentials: one(credentials, {
-    fields: [users.id],
-    references: [credentials.userId],
+export const usersRelations = relations(usersTable, ({ one, many }) => ({
+  credentials: one(credentialsTable, {
+    fields: [usersTable.id],
+    references: [credentialsTable.userId],
   }),
-  oauthAccounts: many(oauthAccounts),
-  sessions: many(sessions),
-  emailVerificationTokens: many(emailVerificationTokens),
-  passwordResetTokens: many(passwordResetTokens),
+  oauthAccounts: many(oauthAccountsTable),
+  sessions: many(sessionsTable),
+  emailVerificationTokens: many(emailVerificationTokensTable),
+  passwordResetTokens: many(passwordResetTokensTable),
 }));
 
-export type User = typeof users.$inferSelect;
-export type NewUser = typeof users.$inferInsert;
+export type User = typeof usersTable.$inferSelect;
+export type NewUser = typeof usersTable.$inferInsert;
