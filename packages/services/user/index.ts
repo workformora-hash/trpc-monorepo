@@ -9,8 +9,7 @@ import { googleOAuth2Client } from "../clients/google-oauth";
 import { oauthAccountsTable } from "@repo/database/models/oauth-accounts";
 import { 
   createUserWithEmailAndPasswordInput, 
-  loginWithEmailAndPasswordInput,
-  GetAuthenticationMethodOutputSchema 
+  loginWithEmailAndPasswordInput
 } from "./model";
 import type { 
   CreateUserWithEmailAndPasswordInputType,
