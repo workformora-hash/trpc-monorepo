@@ -35,6 +35,12 @@ export const createFormInput = z.object({
 
   maxResponses: z.number().int().min(1).optional().nullable()
     .describe("Maximum number of responses the form can accept"),
+
+  notifyCreator: z.boolean().optional().default(false)
+    .describe("Whether to email the creator on submission"),
+
+  notifyRespondent: z.boolean().optional().default(false)
+    .describe("Whether to email the respondent on submission"),
 });
 
 export type CreateFormInputType = z.infer<typeof createFormInput>;
@@ -81,6 +87,12 @@ export const editFormInput = z.object({
 
   maxResponses: z.number().int().min(1).optional().nullable()
     .describe("Maximum number of responses the form can accept"),
+
+  notifyCreator: z.boolean().optional()
+    .describe("Whether to email the creator on submission"),
+
+  notifyRespondent: z.boolean().optional()
+    .describe("Whether to email the respondent on submission"),
 });
 
 export type EditFormInputType = z.infer<typeof editFormInput>;

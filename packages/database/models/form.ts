@@ -41,6 +41,9 @@ export const formsTable = pgTable(
     maxResponses: integer("max_responses"),
     isArchived: boolean("is_archived").notNull().default(false),
 
+    notifyCreator: boolean("notify_creator").notNull().default(false),
+    notifyRespondent: boolean("notify_respondent").notNull().default(false),
+
     ...timestamps,
     ...softDelete,
   },

@@ -230,6 +230,103 @@ describe("FormService - Form Responses & Analytics (Unit)", () => {
         }, null)
       ).rejects.toThrow("cannot be earlier than 2026-01-01");
     });
+
+    it("should fire creator notification email when notifyCreator is enabled", async () => {
+      const notifyForm = { ...mockForm, notifyCreator: true, notifyRespondent: false };
+      const mockEmailService = { sendEmail: vi.fn().mockResolvedValue(null) } as any;
+      const notifyFormService = new FormService(mockEmailService);
+
+      selectChain.then
+        .mockImplementationOnce((onfulfilled: any) => Promise.resolve([notifyForm]).then(onfulfilled)) // Form check
+        .mockImplementationOnce((onfulfilled: any) => Promise.resolve(textFields).then(onfulfilled)) // Fields list
+        .mockImplementationOnce((onfulfilled: any) => Promise.resolve([{ email: "creator@example.com", name: "Creator" }]).then(onfulfilled)); // Creator fetch
+
+      insertChain.then.mockImplementationOnce((onfulfilled: any) =>
+        Promise.resolve([{ id: mockResponseId }]).then(onfulfilled)
+      );
+
+      await notifyFormService.submitResponse({
+        formId: mockFormId,
+        answers: [{ fieldId: "f01ebc99-9c0b-4ef8-bb6d-6bb9bd380af1", value: "Alice" }],
+      }, "127.0.0.1");
+
+      expect(mockEmailService.sendEmail).toHaveBeenCalledTimes(1);
+      expect(mockEmailService.sendEmail).toHaveBeenCalledWith(expect.objectContaining({
+        to: "creator@example.com",
+        subject: expect.stringContaining("New response"),
+      }));
+    });
+
+    it("should fire respondent confirmation email when notifyRespondent is enabled", async () => {
+      const notifyForm = { ...mockForm, notifyCreator: false, notifyRespondent: true };
+      const mockEmailService = { sendEmail: vi.fn().mockResolvedValue(null) } as any;
+      const notifyFormService = new FormService(mockEmailService);
+
+      selectChain.then
+        .mockImplementationOnce((onfulfilled: any) => Promise.resolve([notifyForm]).then(onfulfilled)) // Form check
+        .mockImplementationOnce((onfulfilled: any) => Promise.resolve(textFields).then(onfulfilled)); // Fields list
+
+      insertChain.then.mockImplementationOnce((onfulfilled: any) =>
+        Promise.resolve([{ id: mockResponseId }]).then(onfulfilled)
+      );
+
+      await notifyFormService.submitResponse({
+        formId: mockFormId,
+        respondentEmail: "respondent@example.com",
+        answers: [{ fieldId: "f01ebc99-9c0b-4ef8-bb6d-6bb9bd380af1", value: "Alice" }],
+      }, "127.0.0.1");
+
+      expect(mockEmailService.sendEmail).toHaveBeenCalledTimes(1);
+      expect(mockEmailService.sendEmail).toHaveBeenCalledWith(expect.objectContaining({
+        to: "respondent@example.com",
+        subject: expect.stringContaining("Your submission"),
+      }));
+    });
+
+    it("should not fire respondent email when respondentEmail is missing even if notifyRespondent is enabled", async () => {
+      const notifyForm = { ...mockForm, notifyCreator: false, notifyRespondent: true };
+      const mockEmailService = { sendEmail: vi.fn().mockResolvedValue(null) } as any;
+      const notifyFormService = new FormService(mockEmailService);
+
+      selectChain.then
+        .mockImplementationOnce((onfulfilled: any) => Promise.resolve([notifyForm]).then(onfulfilled))
+        .mockImplementationOnce((onfulfilled: any) => Promise.resolve(textFields).then(onfulfilled));
+
+      insertChain.then.mockImplementationOnce((onfulfilled: any) =>
+        Promise.resolve([{ id: mockResponseId }]).then(onfulfilled)
+      );
+
+      await notifyFormService.submitResponse({
+        formId: mockFormId,
+        answers: [{ fieldId: "f01ebc99-9c0b-4ef8-bb6d-6bb9bd380af1", value: "Alice" }],
+      }, "127.0.0.1");
+
+      expect(mockEmailService.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it("should not break submission if email sending fails", async () => {
+      const notifyForm = { ...mockForm, notifyCreator: true, notifyRespondent: false };
+      const mockEmailService = { sendEmail: vi.fn().mockRejectedValue(new Error("SMTP failure")) } as any;
+      const notifyFormService = new FormService(mockEmailService);
+
+      selectChain.then
+        .mockImplementationOnce((onfulfilled: any) => Promise.resolve([notifyForm]).then(onfulfilled))
+        .mockImplementationOnce((onfulfilled: any) => Promise.resolve(textFields).then(onfulfilled))
+        .mockImplementationOnce((onfulfilled: any) => Promise.resolve([{ email: "creator@example.com", name: "Creator" }]).then(onfulfilled));
+
+      insertChain.then.mockImplementationOnce((onfulfilled: any) =>
+        Promise.resolve([{ id: mockResponseId }]).then(onfulfilled)
+      );
+
+      const result = await notifyFormService.submitResponse({
+        formId: mockFormId,
+        answers: [{ fieldId: "f01ebc99-9c0b-4ef8-bb6d-6bb9bd380af1", value: "Alice" }],
+      }, "127.0.0.1");
+
+      // Submission should still succeed even if email fails
+      expect(result.success).toBe(true);
+      expect(result.responseId).toBe(mockResponseId);
+    });
   });
 
   describe("listResponses", () => {

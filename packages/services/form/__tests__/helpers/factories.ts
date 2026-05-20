@@ -59,6 +59,8 @@ export function createForm(overrides: Partial<FormSelect> = {}): FormSelect {
     theme: "default",
     expiresAt: null,
     maxResponses: null,
+    notifyCreator: false,
+    notifyRespondent: false,
     createdAt: now,
     updatedAt: now,
     deletedAt: null,

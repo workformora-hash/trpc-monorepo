@@ -9,8 +9,15 @@ import { SYSTEM_THEMES } from "./themes";
 import crypto from "crypto";
 import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput, exportResponsesToCSVInput, getResponseByIdInput, restoreDeletedFormInput, archiveFormInput, unarchiveFormInput } from "./model";
 import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType, ExportResponsesToCSVInputType, GetResponseByIdInputType, RestoreDeletedFormInputType, ArchiveFormInputType, UnarchiveFormInputType } from "./model";
+import type { EmailService } from "@repo/email";
 
 class FormService {
+  private emailService?: EmailService;
+
+  constructor(emailService?: EmailService) {
+    this.emailService = emailService;
+  }
+
   private async getUserIdFromToken(token: string): Promise<string> {
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
@@ -109,6 +116,8 @@ class FormService {
         expiresAt: validated.expiresAt ?? null,
         maxResponses: validated.maxResponses ?? null,
         isPublished: false, // forms start unpublished
+        notifyCreator: validated.notifyCreator ?? false,
+        notifyRespondent: validated.notifyRespondent ?? false,
       })
       .returning();
 
@@ -173,6 +182,14 @@ class FormService {
 
     if (validated.maxResponses !== undefined) {
       updateData.maxResponses = validated.maxResponses;
+    }
+
+    if (validated.notifyCreator !== undefined) {
+      updateData.notifyCreator = validated.notifyCreator;
+    }
+
+    if (validated.notifyRespondent !== undefined) {
+      updateData.notifyRespondent = validated.notifyRespondent;
     }
 
     if (validated.slug !== undefined && validated.slug !== existingForm.slug) {
@@ -1036,6 +1053,43 @@ class FormService {
 
       return newResponse;
     });
+
+    // 5. Fire notification emails (non-blocking, best-effort)
+    try {
+      if (form.notifyCreator) {
+        // Fetch creator email
+        const [creator] = await db
+          .select({ email: usersTable.email, name: usersTable.name })
+          .from(usersTable)
+          .where(eq(usersTable.id, form.userId))
+          .limit(1);
+
+        if (creator?.email) {
+          this.emailService?.sendEmail({
+            to: creator.email,
+            subject: `New response on "${form.title}"`,
+            text: `Hi ${creator.name || "there"},\n\nYour form "${form.title}" just received a new response.\n\nLog in to your dashboard to view the details.`,
+          }).catch((err: any) => console.error("[FormService] Creator notification email failed:", err));
+        }
+      }
+
+      if (form.notifyRespondent && validated.respondentEmail) {
+        const answerSummary = preparedAnswers.map((ans) => {
+          const field = fields.find((f) => f.id === ans.fieldId);
+          const val = (ans.value as any)?.value;
+          return `• ${field?.label || ans.fieldId}: ${Array.isArray(val) ? val.join(", ") : val}`;
+        }).join("\n");
+
+        this.emailService?.sendEmail({
+          to: validated.respondentEmail,
+          subject: `Your submission to "${form.title}"`,
+          text: `Thank you for your response!\n\nHere's a copy of your submission:\n\n${answerSummary}`,
+        }).catch((err: any) => console.error("[FormService] Respondent confirmation email failed:", err));
+      }
+    } catch (emailErr: any) {
+      // Never let email failures break the submission flow
+      console.error("[FormService] Email notification error:", emailErr);
+    }
 
     return {
       success: true,

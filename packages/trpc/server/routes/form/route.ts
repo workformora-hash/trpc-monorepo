@@ -150,6 +150,8 @@ export const formRouter = router({
           expiresAt: form.expiresAt,
           maxResponses: form.maxResponses,
           isArchived: form.isArchived,
+          notifyCreator: form.notifyCreator,
+          notifyRespondent: form.notifyRespondent,
           createdAt: form.createdAt,
           updatedAt: form.updatedAt,
         }
@@ -201,6 +203,8 @@ export const formRouter = router({
           expiresAt: form.expiresAt,
           maxResponses: form.maxResponses,
           isArchived: form.isArchived,
+          notifyCreator: form.notifyCreator,
+          notifyRespondent: form.notifyRespondent,
           createdAt: form.createdAt,
           updatedAt: form.updatedAt,
         }

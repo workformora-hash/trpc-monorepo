@@ -35,6 +35,12 @@ export const createFormInputModel = z.object({
 
   maxResponses: z.number().int().min(1).optional().nullable()
     .describe("Maximum number of responses the form can accept"),
+
+  notifyCreator: z.boolean().optional().default(false)
+    .describe("Email the form creator when a new response is submitted"),
+
+  notifyRespondent: z.boolean().optional().default(false)
+    .describe("Email the respondent a copy of their submission"),
 });
 
 export const createFormOutputModel = z.object({
@@ -50,6 +56,8 @@ export const createFormOutputModel = z.object({
     expiresAt: z.date().nullable(),
     maxResponses: z.number().nullable(),
     isArchived: z.boolean(),
+    notifyCreator: z.boolean(),
+    notifyRespondent: z.boolean(),
     createdAt: z.date(),
     updatedAt: z.date(),
   })
@@ -97,6 +105,12 @@ export const editFormInputModel = z.object({
 
   maxResponses: z.number().int().min(1).optional().nullable()
     .describe("Maximum number of responses the form can accept"),
+
+  notifyCreator: z.boolean().optional()
+    .describe("Email the form creator when a new response is submitted"),
+
+  notifyRespondent: z.boolean().optional()
+    .describe("Email the respondent a copy of their submission"),
 });
 
 export const editFormOutputModel = z.object({
@@ -112,6 +126,8 @@ export const editFormOutputModel = z.object({
     expiresAt: z.date().nullable(),
     maxResponses: z.number().nullable(),
     isArchived: z.boolean(),
+    notifyCreator: z.boolean(),
+    notifyRespondent: z.boolean(),
     createdAt: z.date(),
     updatedAt: z.date(),
   })
@@ -176,6 +192,8 @@ export const getFormByIdCreatorOutputModel = z.object({
     expiresAt: z.date().nullable(),
     maxResponses: z.number().nullable(),
     isArchived: z.boolean(),
+    notifyCreator: z.boolean(),
+    notifyRespondent: z.boolean(),
     createdAt: z.date(),
     updatedAt: z.date(),
   }),
