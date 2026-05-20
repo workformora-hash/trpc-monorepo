@@ -113,6 +113,13 @@ export const checkSlugAvailabilityInput = z.object({
 
 export type CheckSlugAvailabilityInputType = z.infer<typeof checkSlugAvailabilityInput>;
 
+export const clearFormResponsesInput = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export type ClearFormResponsesInputType = z.infer<typeof clearFormResponsesInput>;
+
+
 
 
 

@@ -246,6 +246,16 @@ export const checkSlugAvailabilityOutputModel = z.object({
   available: z.boolean(),
 });
 
+export const clearFormResponsesInputModel = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export const clearFormResponsesOutputModel = z.object({
+  success: z.boolean(),
+  formId: z.string(),
+});
+
+
 
 
 

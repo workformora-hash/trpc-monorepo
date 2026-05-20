@@ -3,9 +3,10 @@ import { formsTable } from "@repo/database/models/form";
 import { sessionsTable } from "@repo/database/models/sessions";
 import { usersTable } from "@repo/database/models/user";
 import { formFieldsTable } from "@repo/database/models/form-field";
+import { formResponsesTable } from "@repo/database/models/form-response";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType } from "./model";
 
 class FormService {
   private async getUserIdFromToken(token: string): Promise<string> {
@@ -577,6 +578,41 @@ class FormService {
 
     return {
       available: !existingForm,
+    };
+  }
+
+  public async clearFormResponses(token: string, payload: ClearFormResponsesInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await clearFormResponsesInput.parseAsync(payload);
+
+    // 1. Fetch form to verify it exists and is owned by this user
+    const [existingForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.id),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!existingForm) {
+      throw new Error("Form not found");
+    }
+
+    if (existingForm.userId !== userId) {
+      throw new Error("You are not authorized to clear responses for this form");
+    }
+
+    // 2. Perform deletion of all responses (cascades to delete answers)
+    await db
+      .delete(formResponsesTable)
+      .where(eq(formResponsesTable.formId, existingForm.id));
+
+    return {
+      success: true,
+      formId: existingForm.id,
     };
   }
 }
