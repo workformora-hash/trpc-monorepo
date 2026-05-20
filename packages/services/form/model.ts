@@ -90,5 +90,12 @@ export const deleteFormInput = z.object({
 
 export type DeleteFormInputType = z.infer<typeof deleteFormInput>;
 
+export const duplicateFormInput = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export type DuplicateFormInputType = z.infer<typeof duplicateFormInput>;
+
+
 
 

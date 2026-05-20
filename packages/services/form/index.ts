@@ -4,8 +4,8 @@ import { sessionsTable } from "@repo/database/models/sessions";
 import { usersTable } from "@repo/database/models/user";
 import { formFieldsTable } from "@repo/database/models/form-field";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType } from "./model";
 
 class FormService {
   private async getUserIdFromToken(token: string): Promise<string> {
@@ -370,6 +370,102 @@ class FormService {
     }
 
     return deletedForm;
+  }
+
+  public async duplicateForm(token: string, payload: DuplicateFormInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await duplicateFormInput.parseAsync(payload);
+
+    // 1. Fetch form first to ensure it exists and belongs to this user
+    const [existingForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.id),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!existingForm) {
+      throw new Error("Form not found");
+    }
+
+    if (existingForm.userId !== userId) {
+      throw new Error("You are not authorized to duplicate this form");
+    }
+
+    // 2. Fetch all fields belonging to this form
+    const sourceFields = await db
+      .select()
+      .from(formFieldsTable)
+      .where(eq(formFieldsTable.formId, existingForm.id))
+      .orderBy(sql`${formFieldsTable.orderIndex} ASC`);
+
+    // 3. Generate unique slug for duplicated form
+    let duplicateSlug = "";
+    let isUnique = false;
+    let attempts = 0;
+    while (!isUnique && attempts < 5) {
+      const randomSuffix = crypto.randomBytes(3).toString("hex");
+      const candidateSlug = `${existingForm.slug}-copy-${randomSuffix}`;
+
+      const [slugOwner] = await db
+        .select()
+        .from(formsTable)
+        .where(eq(formsTable.slug, candidateSlug))
+        .limit(1);
+
+      if (!slugOwner) {
+        duplicateSlug = candidateSlug;
+        isUnique = true;
+      }
+      attempts++;
+    }
+
+    if (!duplicateSlug) {
+      duplicateSlug = `${existingForm.slug}-copy-${crypto.randomUUID()}`;
+    }
+
+    // 4. Perform insertion inside a transaction to ensure atomicity
+    const clonedForm = await db.transaction(async (tx) => {
+      // 4a. Insert cloned form
+      const [newForm] = await tx
+        .insert(formsTable)
+        .values({
+          userId,
+          title: `Copy of ${existingForm.title}`,
+          description: existingForm.description,
+          slug: duplicateSlug,
+          isPublished: false, // Start unpublished
+          visibility: existingForm.visibility,
+          theme: existingForm.theme,
+        })
+        .returning();
+
+      if (!newForm) {
+        throw new Error("Failed to insert duplicated form record");
+      }
+
+      // 4b. Clone fields linked to the new form ID
+      if (sourceFields.length > 0) {
+        await tx.insert(formFieldsTable).values(
+          sourceFields.map((field) => ({
+            formId: newForm.id,
+            label: field.label,
+            type: field.type,
+            required: field.required,
+            orderIndex: field.orderIndex,
+            validation: field.validation,
+          }))
+        );
+      }
+
+      return newForm;
+    });
+
+    return clonedForm;
   }
 }
 

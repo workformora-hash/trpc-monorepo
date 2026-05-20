@@ -191,5 +191,25 @@ export const deleteFormOutputModel = z.object({
   })
 });
 
+export const duplicateFormInputModel = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export const duplicateFormOutputModel = z.object({
+  success: z.boolean(),
+  form: z.object({
+    id: z.string(),
+    userId: z.string(),
+    title: z.string(),
+    slug: z.string(),
+    isPublished: z.boolean(),
+    visibility: z.enum(["public", "unlisted"]),
+    theme: z.string(),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+  })
+});
+
+
 
 

@@ -14,7 +14,9 @@ import {
   listFormsCreatorInputModel,
   listFormsCreatorOutputModel,
   deleteFormInputModel,
-  deleteFormOutputModel
+  deleteFormOutputModel,
+  duplicateFormInputModel,
+  duplicateFormOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -293,6 +295,64 @@ export const formRouter = router({
       throw new TRPCError({
         code: errorCode,
         message: error.message || "Failed to delete form",
+      });
+    }
+  }),
+
+  duplicateForm: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/duplicate"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(duplicateFormInputModel)
+  .output(duplicateFormOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to duplicate a form",
+        });
+      }
+
+      const form = await formService.duplicateForm(sessionToken, input);
+
+      return {
+        success: true,
+        form: {
+          id: form.id,
+          userId: form.userId,
+          title: form.title,
+          slug: form.slug,
+          isPublished: form.isPublished,
+          visibility: form.visibility,
+          theme: form.theme,
+          createdAt: form.createdAt,
+          updatedAt: form.updatedAt,
+        }
+      };
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to duplicate this form";
+      const isNotFoundError = error.message === "Form not found";
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to duplicate form",
       });
     }
   }),
