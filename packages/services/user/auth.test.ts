@@ -555,5 +555,83 @@ describe("UserService Authentication Tests", () => {
         db.update = originalUpdate;
       }
     });
+
+    it("should successfully verify an email address with a valid token", async () => {
+      const mockTokenRecord = {
+        id: "token-id",
+        userId: "user-id",
+        isUsed: false,
+        expiresAt: new Date(Date.now() + 3600000),
+      };
+
+      selectChain.limit
+        .mockResolvedValueOnce([mockTokenRecord])
+        .mockResolvedValueOnce([{ id: "user-id" }]);
+
+      const mockTx = {
+        update: vi.fn().mockReturnValue({
+          set: vi.fn().mockReturnThis(),
+          where: vi.fn().mockResolvedValue({ affectedRows: 1 }),
+        }),
+      };
+      vi.mocked(db.transaction).mockImplementation((callback) => callback(mockTx as any));
+
+      const result = await userService.verifyEmail("valid-token");
+      expect(result.success).toBe(true);
+      expect(db.transaction).toHaveBeenCalled();
+      expect(mockTx.update).toHaveBeenCalled();
+    });
+
+    it("should fail email verification with an invalid or expired token", async () => {
+      selectChain.limit.mockResolvedValueOnce([]); // token not found or expired
+
+      await expect(
+        userService.verifyEmail("invalid-token")
+      ).rejects.toThrow(/Invalid or expired token/);
+    });
+
+    it("should successfully reset password with a valid token", async () => {
+      const mockTokenRecord = {
+        id: "token-id",
+        userId: "user-id",
+        isUsed: false,
+        expiresAt: new Date(Date.now() + 3600000),
+      };
+
+      selectChain.limit
+        .mockResolvedValueOnce([mockTokenRecord])
+        .mockResolvedValueOnce([{ id: "user-id" }]);
+
+      const mockTx = {
+        update: vi.fn().mockReturnValue({
+          set: vi.fn().mockReturnThis(),
+          where: vi.fn().mockResolvedValue({ affectedRows: 1 }),
+        }),
+        delete: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue({ affectedRows: 1 }),
+        }),
+      };
+      vi.mocked(db.transaction).mockImplementation((callback) => callback(mockTx as any));
+
+      const result = await userService.resetPassword({ token: "valid-token", password: "NewPassword123!" });
+      expect(result.success).toBe(true);
+      expect(db.transaction).toHaveBeenCalled();
+      expect(mockTx.update).toHaveBeenCalled();
+      expect(mockTx.delete).toHaveBeenCalled(); // Should invalidate concurrent sessions
+    });
+
+    it("should fail password reset with an invalid or expired token", async () => {
+      selectChain.limit.mockResolvedValueOnce([]); // token not found or expired
+
+      await expect(
+        userService.resetPassword({ token: "invalid-token", password: "NewPassword123!" })
+      ).rejects.toThrow(/Invalid or expired password reset token/);
+    });
+
+    it("should successfully log out a user by deleting their active session", async () => {
+      const result = await userService.logout("active-token");
+      expect(result.success).toBe(true);
+      expect(db.delete).toHaveBeenCalled();
+    });
   });
 });
