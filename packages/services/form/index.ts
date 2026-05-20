@@ -4,8 +4,8 @@ import { sessionsTable } from "@repo/database/models/sessions";
 import { usersTable } from "@repo/database/models/user";
 import { formFieldsTable } from "@repo/database/models/form-field";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType } from "./model";
 
 class FormService {
   private async getUserIdFromToken(token: string): Promise<string> {
@@ -466,6 +466,99 @@ class FormService {
     });
 
     return clonedForm;
+  }
+
+  public async publishForm(token: string, payload: PublishFormInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await publishFormInput.parseAsync(payload);
+
+    // 1. Fetch form to verify it exists and is owned by this user
+    const [existingForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.id),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!existingForm) {
+      throw new Error("Form not found");
+    }
+
+    if (existingForm.userId !== userId) {
+      throw new Error("You are not authorized to publish this form");
+    }
+
+    // 2. Business validation: Verify that the form is not empty
+    const fields = await db
+      .select()
+      .from(formFieldsTable)
+      .where(eq(formFieldsTable.formId, existingForm.id))
+      .limit(1);
+
+    if (fields.length === 0) {
+      throw new Error("Cannot publish an empty form. Please add at least one question first.");
+    }
+
+    // 3. Update isPublished
+    const [updatedForm] = await db
+      .update(formsTable)
+      .set({
+        isPublished: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(formsTable.id, existingForm.id))
+      .returning();
+
+    if (!updatedForm) {
+      throw new Error("Failed to publish form");
+    }
+
+    return updatedForm;
+  }
+
+  public async unpublishForm(token: string, payload: UnpublishFormInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await unpublishFormInput.parseAsync(payload);
+
+    // 1. Fetch form to verify it exists and is owned by this user
+    const [existingForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.id),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!existingForm) {
+      throw new Error("Form not found");
+    }
+
+    if (existingForm.userId !== userId) {
+      throw new Error("You are not authorized to unpublish this form");
+    }
+
+    // 2. Update isPublished to false
+    const [updatedForm] = await db
+      .update(formsTable)
+      .set({
+        isPublished: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(formsTable.id, existingForm.id))
+      .returning();
+
+    if (!updatedForm) {
+      throw new Error("Failed to unpublish form");
+    }
+
+    return updatedForm;
   }
 }
 

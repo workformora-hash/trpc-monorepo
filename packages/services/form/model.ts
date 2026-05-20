@@ -96,6 +96,18 @@ export const duplicateFormInput = z.object({
 
 export type DuplicateFormInputType = z.infer<typeof duplicateFormInput>;
 
+export const publishFormInput = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export const unpublishFormInput = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export type PublishFormInputType = z.infer<typeof publishFormInput>;
+export type UnpublishFormInputType = z.infer<typeof unpublishFormInput>;
+
+
 
 
 

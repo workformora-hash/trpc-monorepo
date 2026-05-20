@@ -210,6 +210,35 @@ export const duplicateFormOutputModel = z.object({
   })
 });
 
+export const publishFormInputModel = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export const publishFormOutputModel = z.object({
+  success: z.boolean(),
+  form: z.object({
+    id: z.string(),
+    userId: z.string(),
+    title: z.string(),
+    isPublished: z.boolean(),
+  })
+});
+
+export const unpublishFormInputModel = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export const unpublishFormOutputModel = z.object({
+  success: z.boolean(),
+  form: z.object({
+    id: z.string(),
+    userId: z.string(),
+    title: z.string(),
+    isPublished: z.boolean(),
+  })
+});
+
+
 
 
 

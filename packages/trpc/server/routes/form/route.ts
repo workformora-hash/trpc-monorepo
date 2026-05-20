@@ -16,7 +16,11 @@ import {
   deleteFormInputModel,
   deleteFormOutputModel,
   duplicateFormInputModel,
-  duplicateFormOutputModel
+  duplicateFormOutputModel,
+  publishFormInputModel,
+  publishFormOutputModel,
+  unpublishFormInputModel,
+  unpublishFormOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -353,6 +357,115 @@ export const formRouter = router({
       throw new TRPCError({
         code: errorCode,
         message: error.message || "Failed to duplicate form",
+      });
+    }
+  }),
+
+  publishForm: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/publish"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(publishFormInputModel)
+  .output(publishFormOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to publish a form",
+        });
+      }
+
+      const form = await formService.publishForm(sessionToken, input);
+
+      return {
+        success: true,
+        form: {
+          id: form.id,
+          userId: form.userId,
+          title: form.title,
+          isPublished: form.isPublished,
+        }
+      };
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to publish this form";
+      const isNotFoundError = error.message === "Form not found";
+      const isEmptyError = error.message.includes("Cannot publish an empty form");
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" | "FORBIDDEN" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      } else if (isEmptyError) {
+        errorCode = "FORBIDDEN";
+      }
+
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to publish form",
+      });
+    }
+  }),
+
+  unpublishForm: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/unpublish"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(unpublishFormInputModel)
+  .output(unpublishFormOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to unpublish a form",
+        });
+      }
+
+      const form = await formService.unpublishForm(sessionToken, input);
+
+      return {
+        success: true,
+        form: {
+          id: form.id,
+          userId: form.userId,
+          title: form.title,
+          isPublished: form.isPublished,
+        }
+      };
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to unpublish this form";
+      const isNotFoundError = error.message === "Form not found";
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to unpublish form",
       });
     }
   }),
