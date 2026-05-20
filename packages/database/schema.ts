@@ -7,3 +7,10 @@ export * from "./models/sessions";
 export * from "./models/refresh-tokens";
 export * from "./models/email-verification-tokens";
 export * from "./models/password-reset-tokens";
+
+
+// form specific models
+export * from "./models/form";
+export * from "./models/form-field";
+export * from "./models/form-response";
+export * from "./models/form-field-answer";
