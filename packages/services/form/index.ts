@@ -2,9 +2,10 @@ import { db, eq, and, gt, sql } from "@repo/database";
 import { formsTable } from "@repo/database/models/form";
 import { sessionsTable } from "@repo/database/models/sessions";
 import { usersTable } from "@repo/database/models/user";
+import { formFieldsTable } from "@repo/database/models/form-field";
 import crypto from "crypto";
-import { createFormInput, editFormInput } from "./model";
-import type { CreateFormInputType, EditFormInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType } from "./model";
 
 class FormService {
   private async getUserIdFromToken(token: string): Promise<string> {
@@ -240,6 +241,94 @@ class FormService {
     }
 
     return updatedForm;
+  }
+
+  public async getFormBySlugPublic(payload: GetFormBySlugPublicInputType) {
+    const validated = await getFormBySlugPublicInput.parseAsync(payload);
+
+    const [form] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.slug, validated.slug),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!form) {
+      throw new Error("Form not found");
+    }
+
+    if (!form.isPublished) {
+      throw new Error("This form is not published yet");
+    }
+
+    const fields = await db
+      .select()
+      .from(formFieldsTable)
+      .where(eq(formFieldsTable.formId, form.id))
+      .orderBy(sql`${formFieldsTable.orderIndex} ASC`);
+
+    return {
+      form,
+      fields,
+    };
+  }
+
+  public async getFormByIdCreator(token: string, payload: GetFormByIdCreatorInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await getFormByIdCreatorInput.parseAsync(payload);
+
+    const [form] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.id),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!form) {
+      throw new Error("Form not found");
+    }
+
+    if (form.userId !== userId) {
+      throw new Error("You are not authorized to view this form");
+    }
+
+    const fields = await db
+      .select()
+      .from(formFieldsTable)
+      .where(eq(formFieldsTable.formId, form.id))
+      .orderBy(sql`${formFieldsTable.orderIndex} ASC`);
+
+    return {
+      form,
+      fields,
+    };
+  }
+
+  public async listFormsCreator(token: string) {
+    const userId = await this.getUserIdFromToken(token);
+
+    const forms = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.userId, userId),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .orderBy(sql`${formsTable.createdAt} DESC`);
+
+    return {
+      forms,
+    };
   }
 }
 

@@ -99,3 +99,82 @@ export const editFormOutputModel = z.object({
   })
 });
 
+export const formFieldModel = z.object({
+  id: z.string(),
+  formId: z.string(),
+  label: z.string(),
+  type: z.enum([
+    "short_text",
+    "long_text",
+    "email",
+    "number",
+    "single_select",
+    "multi_select",
+    "checkbox",
+    "rating",
+    "date",
+  ]),
+  required: z.boolean(),
+  orderIndex: z.number(),
+  validation: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+
+export const getFormBySlugPublicInputModel = z.object({
+  slug: z.string().min(1, "Slug is required"),
+});
+
+export const getFormBySlugPublicOutputModel = z.object({
+  form: z.object({
+    id: z.string(),
+    title: z.string(),
+    description: z.string().nullable(),
+    slug: z.string(),
+    isPublished: z.boolean(),
+    visibility: z.enum(["public", "unlisted"]),
+    theme: z.string(),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+  }),
+  fields: z.array(formFieldModel),
+});
+
+export const getFormByIdCreatorInputModel = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export const getFormByIdCreatorOutputModel = z.object({
+  form: z.object({
+    id: z.string(),
+    userId: z.string(),
+    title: z.string(),
+    description: z.string().nullable(),
+    slug: z.string(),
+    isPublished: z.boolean(),
+    visibility: z.enum(["public", "unlisted"]),
+    theme: z.string(),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+  }),
+  fields: z.array(formFieldModel),
+});
+
+export const listFormsCreatorInputModel = z.void();
+
+export const listFormsCreatorOutputModel = z.object({
+  forms: z.array(
+    z.object({
+      id: z.string(),
+      userId: z.string(),
+      title: z.string(),
+      description: z.string().nullable(),
+      slug: z.string(),
+      isPublished: z.boolean(),
+      visibility: z.enum(["public", "unlisted"]),
+      theme: z.string(),
+      createdAt: z.date(),
+      updatedAt: z.date(),
+    })
+  )
+});
+
+

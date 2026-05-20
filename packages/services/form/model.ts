@@ -73,3 +73,15 @@ export const editFormInput = z.object({
 
 export type EditFormInputType = z.infer<typeof editFormInput>;
 
+export const getFormBySlugPublicInput = z.object({
+  slug: z.string().min(1, "Slug is required"),
+});
+
+export const getFormByIdCreatorInput = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export type GetFormBySlugPublicInputType = z.infer<typeof getFormBySlugPublicInput>;
+export type GetFormByIdCreatorInputType = z.infer<typeof getFormByIdCreatorInput>;
+
+
