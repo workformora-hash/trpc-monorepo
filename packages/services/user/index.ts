@@ -6,6 +6,7 @@ import { sessionsTable } from "@repo/database/models/sessions";
 import { passwordResetTokensTable } from "@repo/database/models/password-reset-tokens";
 import { env } from "../env";
 import { googleOAuth2Client } from "../clients/google-oauth";
+import { oauthAccountsTable } from "@repo/database/models/oauth-accounts";
 import { 
   createUserWithEmailAndPasswordInput, 
   loginWithEmailAndPasswordInput,
@@ -18,6 +19,33 @@ import type {
 import bcrypt from 'bcryptjs';
 import crypto from "crypto";
 import { emailService } from "@repo/email";
+
+const ENCRYPTION_ALGORITHM = "aes-256-cbc";
+
+function getEncryptionKey() {
+  const secret = process.env.ENCRYPTION_KEY || env.GOOGLE_OAUTH_CLIENT_SECRET;
+  return crypto.scryptSync(secret, "oauth-token-encryption-salt", 32);
+}
+
+function encrypt(text: string): string {
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, getEncryptionKey(), iv);
+  let encrypted = cipher.update(text, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  return `${iv.toString("hex")}:${encrypted}`;
+}
+
+function decrypt(encryptedText: string): string {
+  const [ivHex, encrypted] = encryptedText.split(":");
+  if (!ivHex || !encrypted) {
+    throw new Error("Invalid encrypted text format");
+  }
+  const iv = Buffer.from(ivHex, "hex");
+  const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, getEncryptionKey(), iv);
+  let decrypted = decipher.update(encrypted, "hex", "utf8");
+  decrypted += decipher.final("utf8");
+  return decrypted;
+}
 
 
 function parseUserAgent(ua?: string): {
@@ -586,6 +614,240 @@ class UserService {
         name: sessionWithUser.user.name,
         email: sessionWithUser.user.email,
         role: sessionWithUser.user.role,
+      },
+    };
+  }
+
+  public getGoogleAuthUrl() {
+    const authUrl = googleOAuth2Client.generateAuthUrl({
+      access_type: "offline",
+      scope: [
+        "https://www.googleapis.com/auth/userinfo.profile",
+        "https://www.googleapis.com/auth/userinfo.email",
+      ],
+      prompt: "consent",
+    });
+    return {
+      provider: "GOOGLE_OAUTH" as const,
+      displayName: "Google",
+      displayText: "Sign in with Google",
+      authUrl,
+    };
+  }
+
+  public async loginWithGoogle(
+    code: string,
+    context: { ipAddress?: string; userAgent?: string }
+  ) {
+    // 1. Exchange authorization code for tokens
+    const { tokens } = await googleOAuth2Client.getToken(code);
+    
+    // 2. Retrieve user details from ID Token or userinfo endpoint
+    let email: string | undefined;
+    let name: string | undefined;
+    let picture: string | undefined;
+    let providerAccountId: string | undefined;
+
+    if (tokens.id_token) {
+      try {
+        const ticket = await googleOAuth2Client.verifyIdToken({
+          idToken: tokens.id_token,
+          audience: env.GOOGLE_OAUTH_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+        email = payload?.email;
+        name = payload?.name;
+        picture = payload?.picture;
+        providerAccountId = payload?.sub;
+      } catch (err) {
+        console.error("Failed to verify Google ID Token, falling back to userinfo endpoint:", err);
+      }
+    }
+
+    if (!providerAccountId || !email) {
+      // Fallback: fetch from Google userinfo API
+      if (!tokens.access_token) {
+        throw new Error("Failed to authenticate with Google: missing access token");
+      }
+      const response = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch user info from Google");
+      }
+      const payload = (await response.json()) as any;
+      email = payload.email;
+      name = payload.name;
+      picture = payload.picture;
+      providerAccountId = payload.sub;
+    }
+
+    if (!providerAccountId || !email) {
+      throw new Error("Could not retrieve profile information from Google");
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // 3. Look up existing Google OAuth account
+    const [existingOauthAccount] = await db
+      .select()
+      .from(oauthAccountsTable)
+      .where(
+        and(
+          eq(oauthAccountsTable.provider, "google"),
+          eq(oauthAccountsTable.providerAccountId, providerAccountId)
+        )
+      )
+      .limit(1);
+
+    let userId: string;
+    let user: any;
+
+    if (existingOauthAccount) {
+      userId = existingOauthAccount.userId;
+      
+      // Get the user record to make sure it's active and not soft-deleted
+      const [u] = await db
+        .select()
+        .from(usersTable)
+        .where(
+          and(
+            eq(usersTable.id, userId),
+            sql`${usersTable.deletedAt} IS NULL`,
+            eq(usersTable.isActive, true)
+          )
+        )
+        .limit(1);
+
+      if (!u) {
+        throw new Error("User account is inactive or not found");
+      }
+      user = u;
+
+      // Update tokens in db
+      const encryptedAccessToken = tokens.access_token ? encrypt(tokens.access_token) : null;
+      const encryptedRefreshToken = tokens.refresh_token ? encrypt(tokens.refresh_token) : null;
+      const tokenExpiresAt = tokens.expiry_date ? new Date(tokens.expiry_date) : null;
+
+      await db
+        .update(oauthAccountsTable)
+        .set({
+          accessToken: encryptedAccessToken,
+          refreshToken: encryptedRefreshToken,
+          tokenExpiresAt,
+          updatedAt: new Date(),
+        })
+        .where(eq(oauthAccountsTable.id, existingOauthAccount.id));
+    } else {
+      // No existing OAuth connection for this Google Account ID.
+      // Check if user already exists by email (password or other auth methods)
+      const existingUser = await this.getUserByEmail(normalizedEmail, false);
+
+      if (existingUser) {
+        if (!existingUser.isActive) {
+          throw new Error("User account is inactive");
+        }
+        userId = existingUser.id;
+        user = existingUser;
+
+        // Auto-verify email if not verified
+        if (!user.isEmailVerified) {
+          await db
+            .update(usersTable)
+            .set({
+              isEmailVerified: true,
+              emailVerifiedAt: new Date(),
+            })
+            .where(eq(usersTable.id, userId));
+          user.isEmailVerified = true;
+          user.emailVerifiedAt = new Date();
+        }
+
+        // Link the Google OAuth account
+        const encryptedAccessToken = tokens.access_token ? encrypt(tokens.access_token) : null;
+        const encryptedRefreshToken = tokens.refresh_token ? encrypt(tokens.refresh_token) : null;
+        const tokenExpiresAt = tokens.expiry_date ? new Date(tokens.expiry_date) : null;
+
+        await db.insert(oauthAccountsTable).values({
+          userId,
+          provider: "google",
+          providerAccountId,
+          accessToken: encryptedAccessToken,
+          refreshToken: encryptedRefreshToken,
+          tokenExpiresAt,
+        });
+      } else {
+        // Create a new user
+        const newUserName = name || email.split("@")[0] || "Google User";
+        const encryptedAccessToken = tokens.access_token ? encrypt(tokens.access_token) : null;
+        const encryptedRefreshToken = tokens.refresh_token ? encrypt(tokens.refresh_token) : null;
+        const tokenExpiresAt = tokens.expiry_date ? new Date(tokens.expiry_date) : null;
+
+        const createdUser = await db.transaction(async (tx) => {
+          const userInsertResult = await tx
+            .insert(usersTable)
+            .values({
+              name: newUserName,
+              email: normalizedEmail,
+              avatarUrl: picture || null,
+              isEmailVerified: true,
+              emailVerifiedAt: new Date(),
+            })
+            .returning();
+
+          const u = userInsertResult?.[0];
+          if (!u) {
+            throw new Error("Failed to create user");
+          }
+
+          await tx.insert(oauthAccountsTable).values({
+            userId: u.id,
+            provider: "google",
+            providerAccountId,
+            accessToken: encryptedAccessToken,
+            refreshToken: encryptedRefreshToken,
+            tokenExpiresAt,
+          });
+
+          return u;
+        });
+
+        userId = createdUser.id;
+        user = createdUser;
+      }
+    }
+
+    // 4. Create user session (exactly identical to standard login success flow)
+    const sessionToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(sessionToken).digest("hex");
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30-day session
+
+    const metadata = parseUserAgent(context.userAgent);
+
+    await db.insert(sessionsTable).values({
+      userId,
+      tokenHash,
+      ipAddress: context.ipAddress || null,
+      userAgent: context.userAgent || null,
+      metadata,
+      expiresAt,
+    });
+
+    // Non-blocking auto-purge of stale tokens
+    this.purgeExpiredTokens().catch((err) => console.error("Automatic background token purge failed:", err));
+
+    return {
+      success: true,
+      token: sessionToken,
+      session: {
+        id: tokenHash,
+        expiresAt,
+      },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
       },
     };
   }

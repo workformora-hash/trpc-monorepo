@@ -125,3 +125,32 @@ export const getCurrentUserOutputModel = z.object({
         role: z.string(),
     })
 }).nullable()
+
+export const getGoogleAuthUrlInputModel = z.void();
+
+export const getGoogleAuthUrlOutputModel = z.object({
+    provider: z.enum(["GOOGLE_OAUTH"]),
+    displayName: z.string().optional(),
+    displayText: z.string().optional(),
+    authUrl: z.string(),
+});
+
+export const loginWithGoogleInputModel = z.object({
+    code: z.string().describe("Google Authorization Code"),
+});
+
+export const loginWithGoogleOutputModel = z.object({
+    success: z.boolean(),
+    token: z.string(),
+    session: z.object({
+        id: z.string(),
+        expiresAt: z.date(),
+    }),
+    user: z.object({
+        id: z.string(),
+        name: z.string(),
+        email: z.string(),
+        role: z.string(),
+    })
+});
+

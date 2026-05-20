@@ -18,7 +18,11 @@ import {
   logoutInputModel,
   logoutOutputModel,
   getCurrentUserInputModel,
-  getCurrentUserOutputModel
+  getCurrentUserOutputModel,
+  getGoogleAuthUrlInputModel,
+  getGoogleAuthUrlOutputModel,
+  loginWithGoogleInputModel,
+  loginWithGoogleOutputModel
 } from "./model";
 
 const TAGS = ["Authentication"];
@@ -341,5 +345,74 @@ export const authRouter = router({
       return {
         user: result.user,
       };
+    }),
+
+  getGoogleAuthUrl: publicProcedure.meta(
+    {
+      openapi:
+      {
+        method: "GET",
+        path: getPath("/getGoogleAuthUrl"),
+        tags: TAGS
+      }
+    })
+    .input(getGoogleAuthUrlInputModel)
+    .output(getGoogleAuthUrlOutputModel)
+    .query(async () => {
+      try {
+        return userService.getGoogleAuthUrl();
+      } catch (error: any) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error.message || "Failed to generate Google Auth URL",
+        });
+      }
+    }),
+
+  loginWithGoogle: publicProcedure.meta(
+    {
+      openapi:
+      {
+        method: "POST",
+        path: getPath("/loginWithGoogle"),
+        tags: TAGS
+      }
+    })
+    .input(loginWithGoogleInputModel)
+    .output(loginWithGoogleOutputModel)
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const ipAddress = parseIpAddress(ctx.req) || "unknown_ip";
+        if (!rateLimiter(ipAddress, "google_login", 20, 15 * 60 * 1000)) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: "Too many login attempts. Please try again after 15 minutes.",
+          });
+        }
+        const userAgent = ctx.req?.headers["user-agent"] || undefined;
+
+        const result = await userService.loginWithGoogle(input.code, {
+          ipAddress: ipAddress === "unknown_ip" ? undefined : ipAddress,
+          userAgent,
+        });
+
+        // Set httpOnly cookie securely if response object is available in context
+        if (ctx.res) {
+          ctx.res.cookie(cookieKey, result.token, {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: "lax",
+            path: "/",
+            expires: result.session.expiresAt,
+          });
+        }
+
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: error.message || "Failed to authenticate with Google",
+        });
+      }
     }),
 });
