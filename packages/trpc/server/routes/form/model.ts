@@ -432,6 +432,16 @@ export const listPublicFormsOutputModel = z.object({
   ),
 });
 
+export const exportResponsesToCSVInputModel = z.object({
+  formId: z.string().uuid("Invalid form ID format"),
+});
+
+export const exportResponsesToCSVOutputModel = z.object({
+  success: z.boolean(),
+  csv: z.string(),
+});
+
+
 
 
 

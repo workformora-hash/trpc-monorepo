@@ -209,6 +209,13 @@ export const listPublicFormsInput = z.object({
 
 export type ListPublicFormsInputType = z.infer<typeof listPublicFormsInput>;
 
+export const exportResponsesToCSVInput = z.object({
+  formId: z.string().uuid("Invalid form ID format"),
+});
+
+export type ExportResponsesToCSVInputType = z.infer<typeof exportResponsesToCSVInput>;
+
+
 
 
 

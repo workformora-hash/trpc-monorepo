@@ -7,8 +7,8 @@ import { formResponsesTable } from "@repo/database/models/form-response";
 import { formFieldAnswersTable } from "@repo/database/models/form-field-answer";
 import { SYSTEM_THEMES } from "./themes";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput, exportResponsesToCSVInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType, ExportResponsesToCSVInputType } from "./model";
 
 class FormService {
   private async getUserIdFromToken(token: string): Promise<string> {
@@ -1320,6 +1320,113 @@ class FormService {
 
     return {
       forms,
+    };
+  }
+
+  public async exportResponsesToCSV(token: string, payload: ExportResponsesToCSVInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await exportResponsesToCSVInput.parseAsync(payload);
+
+    // 1. Fetch form and verify ownership
+    const [existingForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.formId),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!existingForm) {
+      throw new Error("Form not found");
+    }
+
+    if (existingForm.userId !== userId) {
+      throw new Error("You are not authorized to export responses for this form");
+    }
+
+    // 2. Fetch form fields
+    const fields = await db
+      .select()
+      .from(formFieldsTable)
+      .where(eq(formFieldsTable.formId, existingForm.id))
+      .orderBy(sql`${formFieldsTable.orderIndex} ASC`);
+
+    // 3. Fetch form responses
+    const responses = await db
+      .select()
+      .from(formResponsesTable)
+      .where(eq(formResponsesTable.formId, existingForm.id))
+      .orderBy(sql`${formResponsesTable.submittedAt} DESC`);
+
+    // 4. Fetch answers in a single batch
+    let answers: typeof formFieldAnswersTable.$inferSelect[] = [];
+    if (responses.length > 0) {
+      const responseIds = responses.map((r) => r.id);
+      answers = await db
+        .select()
+        .from(formFieldAnswersTable)
+        .where(inArray(formFieldAnswersTable.responseId, responseIds));
+    }
+
+    const answersByResponseId = new Map<string, typeof formFieldAnswersTable.$inferSelect[]>();
+    for (const ans of answers) {
+      if (!answersByResponseId.has(ans.responseId)) {
+        answersByResponseId.set(ans.responseId, []);
+      }
+      answersByResponseId.get(ans.responseId)!.push(ans);
+    }
+
+    const escapeCSV = (val: unknown): string => {
+      if (val === null || val === undefined) return "";
+      let str = "";
+      if (Array.isArray(val)) {
+        str = val.join("; ");
+      } else if (typeof val === "object") {
+        str = JSON.stringify(val);
+      } else {
+        str = String(val);
+      }
+      if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    // 5. Build CSV structure
+    const headers = [
+      "Response ID",
+      "Submitted At",
+      "IP Address",
+      "Respondent Email",
+      ...fields.map((f) => f.label || `Field ${f.id}`),
+    ];
+
+    const csvRows: string[] = [headers.map((h) => escapeCSV(h)).join(",")];
+
+    for (const resp of responses) {
+      const respAnswers = answersByResponseId.get(resp.id) || [];
+      const answersByFieldId = new Map<string, unknown>();
+      for (const ans of respAnswers) {
+        answersByFieldId.set(ans.fieldId, ans.value);
+      }
+
+      const row = [
+        resp.id,
+        resp.submittedAt.toISOString(),
+        resp.ipAddress || "",
+        resp.respondentEmail || "",
+        ...fields.map((f) => answersByFieldId.get(f.id)),
+      ];
+
+      csvRows.push(row.map((val) => escapeCSV(val)).join(","));
+    }
+
+    return {
+      success: true,
+      csv: csvRows.join("\n"),
     };
   }
 }
