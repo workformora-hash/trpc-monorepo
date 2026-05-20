@@ -1,4 +1,4 @@
-import { db, eq, and, gt, sql } from "@repo/database";
+import { db, eq, and, gt, sql, inArray } from "@repo/database";
 import { formsTable } from "@repo/database/models/form";
 import { sessionsTable } from "@repo/database/models/sessions";
 import { usersTable } from "@repo/database/models/user";
@@ -7,8 +7,8 @@ import { formResponsesTable } from "@repo/database/models/form-response";
 import { formFieldAnswersTable } from "@repo/database/models/form-field-answer";
 import { SYSTEM_THEMES } from "./themes";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType } from "./model";
 
 class FormService {
   private async getUserIdFromToken(token: string): Promise<string> {
@@ -1004,6 +1004,92 @@ class FormService {
     return {
       success: true,
       responseId: result.id,
+    };
+  }
+
+  public async listResponses(token: string, payload: ListResponsesInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await listResponsesInput.parseAsync(payload);
+
+    // 1. Verify form exists and is owned by the creator
+    const [existingForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.formId),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!existingForm) {
+      throw new Error("Form not found");
+    }
+
+    if (existingForm.userId !== userId) {
+      throw new Error("You are not authorized to view responses for this form");
+    }
+
+    // 2. Query total responses count for pagination metadata
+    const [countResult] = await db
+      .select({
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(formResponsesTable)
+      .where(eq(formResponsesTable.formId, validated.formId));
+
+    const total = Number(countResult?.count ?? 0);
+
+    // 3. Query paginated list of responses
+    const responses = await db
+      .select()
+      .from(formResponsesTable)
+      .where(eq(formResponsesTable.formId, validated.formId))
+      .orderBy(sql`${formResponsesTable.submittedAt} DESC`)
+      .limit(validated.limit ?? 50)
+      .offset(validated.offset ?? 0);
+
+    if (responses.length === 0) {
+      return {
+        responses: [],
+        total,
+        limit: validated.limit ?? 50,
+        offset: validated.offset ?? 0,
+      };
+    }
+
+    // 4. Query answers linked to all returned responses
+    const responseIds = responses.map((r) => r.id);
+    const answers = await db
+      .select()
+      .from(formFieldAnswersTable)
+      .where(inArray(formFieldAnswersTable.responseId, responseIds));
+
+    // Map answers into their parent response records
+    const mappedResponses = responses.map((resp) => {
+      const respAnswers = answers
+        .filter((ans) => ans.responseId === resp.id)
+        .map((ans) => ({
+          id: ans.id,
+          fieldId: ans.fieldId,
+          value: ans.value,
+        }));
+
+      return {
+        id: resp.id,
+        respondentEmail: resp.respondentEmail,
+        ipAddress: resp.ipAddress,
+        submittedAt: resp.submittedAt,
+        answers: respAnswers,
+      };
+    });
+
+    return {
+      responses: mappedResponses,
+      total,
+      limit: validated.limit ?? 50,
+      offset: validated.offset ?? 0,
     };
   }
 }

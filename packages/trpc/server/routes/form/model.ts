@@ -357,6 +357,34 @@ export const submitResponseOutputModel = z.object({
   responseId: z.string(),
 });
 
+export const listResponsesInputModel = z.object({
+  formId: z.string().uuid("Invalid form ID format"),
+  limit: z.number().int().min(1).max(100).optional().default(50),
+  offset: z.number().int().min(0).optional().default(0),
+});
+
+export const listResponsesOutputModel = z.object({
+  responses: z.array(
+    z.object({
+      id: z.string(),
+      respondentEmail: z.string().nullable(),
+      ipAddress: z.string().nullable(),
+      submittedAt: z.date(),
+      answers: z.array(
+        z.object({
+          id: z.string(),
+          fieldId: z.string(),
+          value: z.unknown(),
+        })
+      ),
+    })
+  ),
+  total: z.number(),
+  limit: z.number(),
+  offset: z.number(),
+});
+
+
 
 
 
