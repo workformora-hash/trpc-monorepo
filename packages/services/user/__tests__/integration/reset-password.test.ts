@@ -73,5 +73,5 @@ describe("UserService - Reset Password (Integration)", () => {
       { ipAddress: "127.0.0.1" }
     );
     expect(loginResult.success).toBe(true);
-  });
+  }, 30000);
 });

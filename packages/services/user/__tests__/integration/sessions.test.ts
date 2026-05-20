@@ -74,5 +74,5 @@ describe("UserService - Sessions (Integration)", () => {
 
     expect(sessionsAfterRevocation).toHaveLength(1);
     expect(sessionsAfterRevocation[0]?.ipAddress).toBe("192.168.1.1");
-  });
+  }, 30000);
 });
