@@ -215,6 +215,12 @@ export const exportResponsesToCSVInput = z.object({
 
 export type ExportResponsesToCSVInputType = z.infer<typeof exportResponsesToCSVInput>;
 
+export const getResponseByIdInput = z.object({
+  responseId: z.string().uuid("Invalid response ID format"),
+});
+
+export type GetResponseByIdInputType = z.infer<typeof getResponseByIdInput>;
+
 
 
 

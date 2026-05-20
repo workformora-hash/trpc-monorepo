@@ -7,8 +7,8 @@ import { formResponsesTable } from "@repo/database/models/form-response";
 import { formFieldAnswersTable } from "@repo/database/models/form-field-answer";
 import { SYSTEM_THEMES } from "./themes";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput, exportResponsesToCSVInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType, ExportResponsesToCSVInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput, exportResponsesToCSVInput, getResponseByIdInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType, ExportResponsesToCSVInputType, GetResponseByIdInputType } from "./model";
 
 class FormService {
   private async getUserIdFromToken(token: string): Promise<string> {
@@ -1427,6 +1427,73 @@ class FormService {
     return {
       success: true,
       csv: csvRows.join("\n"),
+    };
+  }
+
+  public async getResponseById(token: string, payload: GetResponseByIdInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await getResponseByIdInput.parseAsync(payload);
+
+    // 1. Fetch response and verify form ownership via join
+    const [responseWithForm] = await db
+      .select({
+        response: formResponsesTable,
+        formUserId: formsTable.userId,
+        formTitle: formsTable.title,
+      })
+      .from(formResponsesTable)
+      .innerJoin(formsTable, eq(formResponsesTable.formId, formsTable.id))
+      .where(
+        and(
+          eq(formResponsesTable.id, validated.responseId),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!responseWithForm) {
+      throw new Error("Response not found");
+    }
+
+    if (responseWithForm.formUserId !== userId) {
+      throw new Error("You are not authorized to view this response");
+    }
+
+    // 2. Fetch fields for context labels
+    const fields = await db
+      .select()
+      .from(formFieldsTable)
+      .where(eq(formFieldsTable.formId, responseWithForm.response.formId))
+      .orderBy(sql`${formFieldsTable.orderIndex} ASC`);
+
+    // 3. Fetch answers for this response
+    const answers = await db
+      .select()
+      .from(formFieldAnswersTable)
+      .where(eq(formFieldAnswersTable.responseId, validated.responseId));
+
+    // 4. Map answers to their field labels
+    const fieldMap = new Map(fields.map((f) => [f.id, f]));
+    const enrichedAnswers = answers.map((ans) => {
+      const field = fieldMap.get(ans.fieldId);
+      return {
+        fieldId: ans.fieldId,
+        label: field?.label ?? "Unknown Field",
+        type: field?.type ?? "unknown",
+        value: ans.value,
+      };
+    });
+
+    return {
+      response: {
+        id: responseWithForm.response.id,
+        formId: responseWithForm.response.formId,
+        formTitle: responseWithForm.formTitle,
+        respondentEmail: responseWithForm.response.respondentEmail,
+        ipAddress: responseWithForm.response.ipAddress,
+        submittedAt: responseWithForm.response.submittedAt,
+      },
+      answers: enrichedAnswers,
     };
   }
 }

@@ -45,7 +45,9 @@ import {
   listPublicFormsInputModel,
   listPublicFormsOutputModel,
   exportResponsesToCSVInputModel,
-  exportResponsesToCSVOutputModel
+  exportResponsesToCSVOutputModel,
+  getResponseByIdInputModel,
+  getResponseByIdOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -981,6 +983,50 @@ export const formRouter = router({
       throw new TRPCError({
         code: errorCode,
         message: error.message || "Failed to export responses",
+      });
+    }
+  }),
+
+  getResponseById: publicProcedure.meta({
+    openapi: {
+      method: "GET",
+      path: getPath("/responses/detail"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(getResponseByIdInputModel)
+  .output(getResponseByIdOutputModel)
+  .query(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to view response details",
+        });
+      }
+
+      const result = await formService.getResponseById(sessionToken, input);
+      return result;
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to view this response";
+      const isNotFoundError = error.message === "Response not found";
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to fetch response details",
       });
     }
   }),

@@ -441,6 +441,29 @@ export const exportResponsesToCSVOutputModel = z.object({
   csv: z.string(),
 });
 
+export const getResponseByIdInputModel = z.object({
+  responseId: z.string().uuid("Invalid response ID format"),
+});
+
+export const getResponseByIdOutputModel = z.object({
+  response: z.object({
+    id: z.string(),
+    formId: z.string(),
+    formTitle: z.string(),
+    respondentEmail: z.string().nullable(),
+    ipAddress: z.string().nullable(),
+    submittedAt: z.date(),
+  }),
+  answers: z.array(
+    z.object({
+      fieldId: z.string(),
+      label: z.string(),
+      type: z.string(),
+      value: z.unknown(),
+    })
+  ),
+});
+
 
 
 
