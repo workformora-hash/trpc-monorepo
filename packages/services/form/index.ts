@@ -4,10 +4,11 @@ import { sessionsTable } from "@repo/database/models/sessions";
 import { usersTable } from "@repo/database/models/user";
 import { formFieldsTable } from "@repo/database/models/form-field";
 import { formResponsesTable } from "@repo/database/models/form-response";
+import { formFieldAnswersTable } from "@repo/database/models/form-field-answer";
 import { SYSTEM_THEMES } from "./themes";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType } from "./model";
 
 class FormService {
   private async getUserIdFromToken(token: string): Promise<string> {
@@ -803,6 +804,206 @@ class FormService {
 
     return {
       success: true,
+    };
+  }
+
+  public async submitResponse(payload: SubmitResponseInputType, ipAddress: string | null) {
+    const validated = await submitResponseInput.parseAsync(payload);
+
+    // 1. Fetch form to verify it is published and exists
+    const [form] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.formId),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!form) {
+      throw new Error("Form not found");
+    }
+
+    if (!form.isPublished) {
+      throw new Error("This form is not published and cannot accept responses");
+    }
+
+    // 2. Fetch all fields for this form
+    const fields = await db
+      .select()
+      .from(formFieldsTable)
+      .where(eq(formFieldsTable.formId, validated.formId));
+
+    const preparedAnswers: { fieldId: string; value: unknown }[] = [];
+
+    // 3. Dynamic Field Validation Loop
+    for (const field of fields) {
+      const answer = validated.answers.find((a) => a.fieldId === field.id);
+      const hasValue =
+        answer !== undefined &&
+        answer.value !== null &&
+        answer.value !== undefined &&
+        answer.value !== "";
+
+      // Check Required Constraint
+      if (field.required && !hasValue) {
+        throw new Error(`Question "${field.label}" is required.`);
+      }
+
+      if (!hasValue) {
+        continue;
+      }
+
+      const val = answer.value;
+      const config = (field.validation as Record<string, any>) || {};
+
+      switch (field.type) {
+        case "short_text":
+        case "long_text": {
+          if (typeof val !== "string") {
+            throw new Error(`Answer for "${field.label}" must be a text string.`);
+          }
+          if (config.minLength !== undefined && val.length < config.minLength) {
+            throw new Error(`Answer for "${field.label}" must be at least ${config.minLength} characters.`);
+          }
+          if (config.maxLength !== undefined && val.length > config.maxLength) {
+            throw new Error(`Answer for "${field.label}" must be at most ${config.maxLength} characters.`);
+          }
+          preparedAnswers.push({ fieldId: field.id, value: { value: val } });
+          break;
+        }
+
+        case "email": {
+          if (typeof val !== "string") {
+            throw new Error(`Answer for "${field.label}" must be an email address.`);
+          }
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(val)) {
+            throw new Error(`Answer for "${field.label}" must be a valid email format.`);
+          }
+          preparedAnswers.push({ fieldId: field.id, value: { value: val } });
+          break;
+        }
+
+        case "number": {
+          if (typeof val !== "number" || isNaN(val)) {
+            throw new Error(`Answer for "${field.label}" must be a valid number.`);
+          }
+          if (config.min !== undefined && val < config.min) {
+            throw new Error(`Answer for "${field.label}" must be at least ${config.min}.`);
+          }
+          if (config.max !== undefined && val > config.max) {
+            throw new Error(`Answer for "${field.label}" must be at most ${config.max}.`);
+          }
+          preparedAnswers.push({ fieldId: field.id, value: { value: val } });
+          break;
+        }
+
+        case "rating": {
+          if (typeof val !== "number" || !Number.isInteger(val) || val < 1) {
+            throw new Error(`Answer for "${field.label}" must be an integer starting from 1.`);
+          }
+          if (config.max !== undefined && val > config.max) {
+            throw new Error(`Answer for "${field.label}" must be at most ${config.max}.`);
+          }
+          preparedAnswers.push({ fieldId: field.id, value: { value: val } });
+          break;
+        }
+
+        case "checkbox": {
+          if (typeof val !== "boolean") {
+            throw new Error(`Answer for "${field.label}" must be a true/false value.`);
+          }
+          preparedAnswers.push({ fieldId: field.id, value: { value: val } });
+          break;
+        }
+
+        case "single_select": {
+          if (typeof val !== "string") {
+            throw new Error(`Answer for "${field.label}" must be a choice selection.`);
+          }
+          const options = config.options || [];
+          if (!options.includes(val)) {
+            throw new Error(`Selected option for "${field.label}" is invalid.`);
+          }
+          preparedAnswers.push({ fieldId: field.id, value: { value: val } });
+          break;
+        }
+
+        case "multi_select": {
+          if (!Array.isArray(val)) {
+            throw new Error(`Answer for "${field.label}" must be a list of selection choices.`);
+          }
+          const options = config.options || [];
+          for (const item of val) {
+            if (typeof item !== "string") {
+              throw new Error(`All selected options for "${field.label}" must be text.`);
+            }
+            if (!options.includes(item)) {
+              throw new Error(`Selected option "${item}" for "${field.label}" is invalid.`);
+            }
+          }
+          preparedAnswers.push({ fieldId: field.id, value: { value: val } });
+          break;
+        }
+
+        case "date": {
+          if (typeof val !== "string") {
+            throw new Error(`Answer for "${field.label}" must be a date string.`);
+          }
+          const parsedDate = Date.parse(val);
+          if (isNaN(parsedDate)) {
+            throw new Error(`Answer for "${field.label}" must be a valid date format.`);
+          }
+          if (config.minDate !== undefined && parsedDate < Date.parse(config.minDate)) {
+            throw new Error(`Answer for "${field.label}" cannot be earlier than ${config.minDate}.`);
+          }
+          if (config.maxDate !== undefined && parsedDate > Date.parse(config.maxDate)) {
+            throw new Error(`Answer for "${field.label}" cannot be later than ${config.maxDate}.`);
+          }
+          preparedAnswers.push({ fieldId: field.id, value: { value: val } });
+          break;
+        }
+
+        default: {
+          throw new Error(`Unsupported field type: ${field.type}`);
+        }
+      }
+    }
+
+    // 4. Save Response and Field Answers Atomically
+    const result = await db.transaction(async (tx) => {
+      const [newResponse] = await tx
+        .insert(formResponsesTable)
+        .values({
+          formId: validated.formId,
+          respondentEmail: validated.respondentEmail ?? null,
+          ipAddress: ipAddress ?? null,
+        })
+        .returning();
+
+      if (!newResponse) {
+        throw new Error("Failed to register form response record");
+      }
+
+      if (preparedAnswers.length > 0) {
+        await tx.insert(formFieldAnswersTable).values(
+          preparedAnswers.map((ans) => ({
+            responseId: newResponse.id,
+            fieldId: ans.fieldId,
+            value: ans.value,
+          }))
+        );
+      }
+
+      return newResponse;
+    });
+
+    return {
+      success: true,
+      responseId: result.id,
     };
   }
 }

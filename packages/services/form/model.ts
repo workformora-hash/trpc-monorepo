@@ -169,6 +169,20 @@ export const reorderFormFieldsInput = z.object({
 
 export type ReorderFormFieldsInputType = z.infer<typeof reorderFormFieldsInput>;
 
+export const submitResponseInput = z.object({
+  formId: z.string().uuid("Invalid form ID format"),
+  respondentEmail: z.string().email("Invalid email format").optional().nullable(),
+  answers: z.array(
+    z.object({
+      fieldId: z.string().uuid("Invalid field ID format"),
+      value: z.unknown(),
+    })
+  ),
+});
+
+export type SubmitResponseInputType = z.infer<typeof submitResponseInput>;
+
+
 
 
 

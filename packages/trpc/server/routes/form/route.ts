@@ -33,7 +33,9 @@ import {
   deleteFormFieldInputModel,
   deleteFormFieldOutputModel,
   reorderFormFieldsInputModel,
-  reorderFormFieldsOutputModel
+  reorderFormFieldsOutputModel,
+  submitResponseInputModel,
+  submitResponseOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -740,6 +742,38 @@ export const formRouter = router({
       throw new TRPCError({
         code: errorCode,
         message: error.message || "Failed to reorder form fields",
+      });
+    }
+  }),
+
+  submitResponse: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/submit"),
+      tags: TAGS,
+    }
+  })
+  .input(submitResponseInputModel)
+  .output(submitResponseOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const ipAddress = (ctx.req?.headers?.["x-forwarded-for"] as string) || ctx.req?.socket?.remoteAddress || null;
+
+      const result = await formService.submitResponse(input, ipAddress);
+      return result;
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+
+      const isNotFoundError = error.message === "Form not found";
+
+      let errorCode: "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to submit response",
       });
     }
   }),

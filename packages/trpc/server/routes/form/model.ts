@@ -341,6 +341,23 @@ export const reorderFormFieldsOutputModel = z.object({
   success: z.boolean(),
 });
 
+export const submitResponseInputModel = z.object({
+  formId: z.string().uuid("Invalid form ID format"),
+  respondentEmail: z.string().email("Invalid email format").optional().nullable(),
+  answers: z.array(
+    z.object({
+      fieldId: z.string().uuid("Invalid field ID format"),
+      value: z.unknown(),
+    })
+  ),
+});
+
+export const submitResponseOutputModel = z.object({
+  success: z.boolean(),
+  responseId: z.string(),
+});
+
+
 
 
 
