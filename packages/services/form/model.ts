@@ -107,6 +107,13 @@ export const unpublishFormInput = z.object({
 export type PublishFormInputType = z.infer<typeof publishFormInput>;
 export type UnpublishFormInputType = z.infer<typeof unpublishFormInput>;
 
+export const checkSlugAvailabilityInput = z.object({
+  slug: z.string().min(1, "Slug is required").max(256, "Slug must be at most 256 characters long"),
+});
+
+export type CheckSlugAvailabilityInputType = z.infer<typeof checkSlugAvailabilityInput>;
+
+
 
 
 

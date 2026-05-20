@@ -238,6 +238,15 @@ export const unpublishFormOutputModel = z.object({
   })
 });
 
+export const checkSlugAvailabilityInputModel = z.object({
+  slug: z.string().min(1, "Slug is required").max(256, "Slug must be at most 256 characters long"),
+});
+
+export const checkSlugAvailabilityOutputModel = z.object({
+  available: z.boolean(),
+});
+
+
 
 
 

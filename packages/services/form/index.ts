@@ -4,8 +4,8 @@ import { sessionsTable } from "@repo/database/models/sessions";
 import { usersTable } from "@repo/database/models/user";
 import { formFieldsTable } from "@repo/database/models/form-field";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType } from "./model";
 
 class FormService {
   private async getUserIdFromToken(token: string): Promise<string> {
@@ -559,6 +559,25 @@ class FormService {
     }
 
     return updatedForm;
+  }
+
+  public async checkSlugAvailability(payload: CheckSlugAvailabilityInputType) {
+    const validated = await checkSlugAvailabilityInput.parseAsync(payload);
+
+    const [existingForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.slug, validated.slug),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    return {
+      available: !existingForm,
+    };
   }
 }
 

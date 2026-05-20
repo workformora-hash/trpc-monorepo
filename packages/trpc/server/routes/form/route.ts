@@ -20,7 +20,9 @@ import {
   publishFormInputModel,
   publishFormOutputModel,
   unpublishFormInputModel,
-  unpublishFormOutputModel
+  unpublishFormOutputModel,
+  checkSlugAvailabilityInputModel,
+  checkSlugAvailabilityOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -466,6 +468,27 @@ export const formRouter = router({
       throw new TRPCError({
         code: errorCode,
         message: error.message || "Failed to unpublish form",
+      });
+    }
+  }),
+
+  checkSlugAvailability: publicProcedure.meta({
+    openapi: {
+      method: "GET",
+      path: getPath("/check-slug"),
+      tags: TAGS,
+    }
+  })
+  .input(checkSlugAvailabilityInputModel)
+  .output(checkSlugAvailabilityOutputModel)
+  .query(async ({ input }) => {
+    try {
+      const result = await formService.checkSlugAvailability(input);
+      return result;
+    } catch (error: any) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: error.message || "Failed to check slug availability",
       });
     }
   }),
