@@ -154,3 +154,84 @@ export const loginWithGoogleOutputModel = z.object({
     })
 });
 
+export const getActiveSessionsInputModel = z.void();
+
+export const getActiveSessionsOutputModel = z.object({
+    sessions: z.array(
+        z.object({
+            id: z.string(),
+            ipAddress: z.string().nullable(),
+            userAgent: z.string().nullable(),
+            metadata: z.object({
+                os: z.string().optional(),
+                browser: z.string().optional(),
+                deviceType: z.enum(["desktop", "mobile", "tablet"]).optional(),
+            }).nullable(),
+            lastActiveAt: z.date().nullable(),
+            isCurrent: z.boolean(),
+        })
+    )
+});
+
+export const revokeSessionByIdInputModel = z.object({
+    sessionId: z.string().uuid("Invalid session ID format"),
+});
+
+export const revokeSessionByIdOutputModel = z.object({
+    success: z.boolean(),
+});
+
+export const refreshSessionInputModel = z.void();
+
+export const refreshSessionOutputModel = z.object({
+    success: z.boolean(),
+    expiresAt: z.date(),
+});
+
+export const changePasswordInputModel = z.object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: z.string()
+        .min(8, "Password must be at least 8 characters long")
+        .max(128, "Password must be at most 128 characters long")
+        .refine((val) => /[A-Z]/.test(val), {
+            message: "Password must contain at least one uppercase letter",
+        })
+        .refine((val) => /[a-z]/.test(val), {
+            message: "Password must contain at least one lowercase letter",
+        })
+        .refine((val) => /[0-9]/.test(val), {
+            message: "Password must contain at least one number",
+        })
+        .refine((val) => /[^A-Za-z0-9]/.test(val), {
+            message: "Password must contain at least one special character",
+        }),
+});
+
+export const changePasswordOutputModel = z.object({
+    success: z.boolean(),
+});
+
+export const deleteAccountInputModel = z.void();
+
+export const deleteAccountOutputModel = z.object({
+    success: z.boolean(),
+});
+
+export const updateProfileInputModel = z.object({
+    name: z.string()
+        .max(128, "Name must be at most 128 characters long")
+        .min(3, "Name must be at least 3 characters long")
+        .optional(),
+});
+
+export const updateProfileOutputModel = z.object({
+    success: z.boolean(),
+    user: z.object({
+        id: z.string(),
+        name: z.string(),
+        email: z.string(),
+    }),
+});
+
+
+

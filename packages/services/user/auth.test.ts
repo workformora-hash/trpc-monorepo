@@ -70,6 +70,7 @@ vi.mock("../clients/google-oauth", () => {
 import { describe, it, expect, beforeEach } from "vitest";
 import UserService from "./index";
 import { db } from "@repo/database";
+import bcrypt from "bcryptjs";
 
 describe("UserService Authentication Tests", () => {
   let userService: UserService;
@@ -356,6 +357,203 @@ describe("UserService Authentication Tests", () => {
       expect(result.user.id).toBe("new-google-user-id");
       expect(db.transaction).toHaveBeenCalled(); // Should create user and link oauth within tx
       expect(db.insert).toHaveBeenCalled(); // Should create session
+    });
+  });
+
+  describe("Active Sessions Management Flow", () => {
+    it("should fetch all active unexpired sessions for the user and flag the current session", async () => {
+      const mockCurrentSession = {
+        id: "active-session-id",
+        userId: "user-id",
+        tokenHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", // sha256 of empty token ""
+        ipAddress: "127.0.0.1",
+        userAgent: "Mozilla/5.0",
+        metadata: { os: "Windows", browser: "Chrome", deviceType: "desktop" },
+        expiresAt: new Date(Date.now() + 1000 * 3600),
+        lastActiveAt: new Date(),
+      };
+
+      const mockOtherSession = {
+        id: "other-session-id",
+        userId: "user-id",
+        tokenHash: "other-hash",
+        ipAddress: "192.168.1.1",
+        userAgent: "Safari",
+        metadata: { os: "iOS", browser: "Safari", deviceType: "mobile" },
+        expiresAt: new Date(Date.now() + 1000 * 3600),
+        lastActiveAt: new Date(),
+      };
+
+      // Mock database queries:
+      // 1. Get the current active session from the token -> mockCurrentSession
+      // 2. Get all unexpired sessions for this user -> [mockCurrentSession, mockOtherSession]
+      selectChain.limit.mockResolvedValueOnce([mockCurrentSession]);
+      selectChain.orderBy.mockResolvedValueOnce([mockCurrentSession, mockOtherSession]);
+
+      const result = await userService.getActiveSessions("");
+
+      expect(result.sessions).toHaveLength(2);
+      expect(result.sessions[0].id).toBe("active-session-id");
+      expect(result.sessions[0].isCurrent).toBe(true);
+      expect(result.sessions[1].id).toBe("other-session-id");
+      expect(result.sessions[1].isCurrent).toBe(false);
+    });
+
+    it("should revoke a session by ID if it belongs to the user", async () => {
+      const mockCurrentSession = {
+        id: "active-session-id",
+        userId: "user-id",
+        tokenHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      };
+
+      const mockRevokedSession = {
+        id: "session-to-revoke-id",
+        userId: "user-id",
+        tokenHash: "revoked-hash",
+      };
+
+      // Mock DB:
+      // 1. Get current session -> mockCurrentSession
+      // 2. Get session to revoke -> mockRevokedSession
+      selectChain.limit
+        .mockResolvedValueOnce([mockCurrentSession])
+        .mockResolvedValueOnce([mockRevokedSession]);
+
+      const result = await userService.revokeSessionById("", "session-to-revoke-id");
+
+      expect(result.success).toBe(true);
+      expect(result.isCurrent).toBe(false);
+      expect(db.delete).toHaveBeenCalled();
+    });
+  });
+
+  describe("Expanded Authentication Features Flow", () => {
+    it("should refresh an active session by extending its expiresAt", async () => {
+      // Mock db.update().set().where().returning()
+      const mockSession = { id: "session-id", expiresAt: new Date() };
+      const returningMock = vi.fn().mockResolvedValue([mockSession]);
+      const whereMock = vi.fn().mockReturnValue({ returning: returningMock });
+      const setMock = vi.fn().mockReturnValue({ where: whereMock });
+      const updateMock = vi.fn().mockReturnValue({ set: setMock });
+      
+      const originalUpdate = db.update;
+      db.update = updateMock as any;
+
+      try {
+        const result = await userService.refreshSession("");
+        expect(result.success).toBe(true);
+        expect(result.expiresAt).toBeInstanceOf(Date);
+        expect(updateMock).toHaveBeenCalled();
+      } finally {
+        db.update = originalUpdate;
+      }
+    });
+
+    it("should allow a logged-in user to change their password", async () => {
+      const mockCurrentSession = {
+        id: "active-session-id",
+        userId: "user-id",
+        tokenHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      };
+
+      // Mock bcrypt hash of "current-password"
+      const currentPasswordHash = await bcrypt.hash("current-password", 10);
+      const mockCredentials = {
+        id: "cred-id",
+        userId: "user-id",
+        passwordHash: currentPasswordHash,
+      };
+
+      // Mock DB:
+      // 1. Get current active session
+      // 2. Get credentials
+      selectChain.limit
+        .mockResolvedValueOnce([mockCurrentSession])
+        .mockResolvedValueOnce([mockCredentials]);
+
+      // Mock Drizzle Transaction
+      const mockTx = {
+        update: vi.fn().mockReturnValue({
+          set: vi.fn().mockReturnThis(),
+          where: vi.fn().mockResolvedValue({ affectedRows: 1 }),
+        }),
+        delete: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue({ affectedRows: 1 }),
+        }),
+      };
+      vi.mocked(db.transaction).mockImplementation((callback) => callback(mockTx as any));
+
+      const result = await userService.changePassword("", {
+        currentPassword: "current-password",
+        newPassword: "NewSecurePassword123!",
+      });
+
+      expect(result.success).toBe(true);
+      expect(db.transaction).toHaveBeenCalled();
+      expect(mockTx.update).toHaveBeenCalled();
+      expect(mockTx.delete).toHaveBeenCalled(); // Should revoke other sessions
+    });
+
+    it("should soft delete user account and delete all active sessions", async () => {
+      const mockCurrentSession = {
+        id: "active-session-id",
+        userId: "user-id",
+        tokenHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      };
+
+      selectChain.limit.mockResolvedValueOnce([mockCurrentSession]);
+
+      const mockTx = {
+        update: vi.fn().mockReturnValue({
+          set: vi.fn().mockReturnThis(),
+          where: vi.fn().mockResolvedValue({ affectedRows: 1 }),
+        }),
+        delete: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue({ affectedRows: 1 }),
+        }),
+      };
+      vi.mocked(db.transaction).mockImplementation((callback) => callback(mockTx as any));
+
+      const result = await userService.deleteAccount("");
+
+      expect(result.success).toBe(true);
+      expect(db.transaction).toHaveBeenCalled();
+      expect(mockTx.update).toHaveBeenCalled(); // Should soft-delete
+      expect(mockTx.delete).toHaveBeenCalled(); // Should delete all sessions
+    });
+
+    it("should update user profile details", async () => {
+      const mockCurrentSession = {
+        id: "active-session-id",
+        userId: "user-id",
+        tokenHash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      };
+
+      const mockUpdatedUser = {
+        id: "user-id",
+        name: "New Display Name",
+        email: "user@example.com",
+      };
+
+      selectChain.limit.mockResolvedValueOnce([mockCurrentSession]);
+
+      // Mock update().set().where().returning()
+      const returningMock = vi.fn().mockResolvedValue([mockUpdatedUser]);
+      const whereMock = vi.fn().mockReturnValue({ returning: returningMock });
+      const setMock = vi.fn().mockReturnValue({ where: whereMock });
+      const updateMock = vi.fn().mockReturnValue({ set: setMock });
+
+      const originalUpdate = db.update;
+      db.update = updateMock as any;
+
+      try {
+        const result = await userService.updateProfile("", { name: "New Display Name" });
+        expect(result.success).toBe(true);
+        expect(result.user.name).toBe("New Display Name");
+        expect(updateMock).toHaveBeenCalled();
+      } finally {
+        db.update = originalUpdate;
+      }
     });
   });
 });

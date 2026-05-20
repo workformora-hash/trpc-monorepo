@@ -22,7 +22,19 @@ import {
   getGoogleAuthUrlInputModel,
   getGoogleAuthUrlOutputModel,
   loginWithGoogleInputModel,
-  loginWithGoogleOutputModel
+  loginWithGoogleOutputModel,
+  getActiveSessionsInputModel,
+  getActiveSessionsOutputModel,
+  revokeSessionByIdInputModel,
+  revokeSessionByIdOutputModel,
+  refreshSessionInputModel,
+  refreshSessionOutputModel,
+  changePasswordInputModel,
+  changePasswordOutputModel,
+  deleteAccountInputModel,
+  deleteAccountOutputModel,
+  updateProfileInputModel,
+  updateProfileOutputModel
 } from "./model";
 
 const TAGS = ["Authentication"];
@@ -412,6 +424,228 @@ export const authRouter = router({
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: error.message || "Failed to authenticate with Google",
+        });
+      }
+    }),
+
+  getActiveSessions: publicProcedure.meta(
+    {
+      openapi:
+      {
+        method: "GET",
+        path: getPath("/getActiveSessions"),
+        tags: TAGS
+      }
+    })
+    .input(getActiveSessionsInputModel)
+    .output(getActiveSessionsOutputModel)
+    .query(async ({ ctx }) => {
+      try {
+        const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+        if (!sessionToken) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "You must be logged in to view active sessions",
+          });
+        }
+        return await userService.getActiveSessions(sessionToken);
+      } catch (error: any) {
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error.message || "Failed to fetch active sessions",
+        });
+      }
+    }),
+
+  revokeSessionById: publicProcedure.meta(
+    {
+      openapi:
+      {
+        method: "POST",
+        path: getPath("/revokeSessionById"),
+        tags: TAGS
+      }
+    })
+    .input(revokeSessionByIdInputModel)
+    .output(revokeSessionByIdOutputModel)
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+        if (!sessionToken) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "You must be logged in to revoke sessions",
+          });
+        }
+        
+        const result = await userService.revokeSessionById(sessionToken, input.sessionId);
+
+        // If the revoked session was the current one, clear the cookie!
+        if (result.isCurrent && ctx.res) {
+          ctx.res.clearCookie(cookieKey, {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: "lax",
+            path: "/",
+          });
+        }
+
+        return { success: result.success };
+      } catch (error: any) {
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error.message || "Failed to revoke session",
+        });
+      }
+    }),
+
+  refreshSession: publicProcedure.meta(
+    {
+      openapi:
+      {
+        method: "POST",
+        path: getPath("/refreshSession"),
+        tags: TAGS
+      }
+    })
+    .input(refreshSessionInputModel)
+    .output(refreshSessionOutputModel)
+    .mutation(async ({ ctx }) => {
+      try {
+        const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+        if (!sessionToken) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "You must be logged in to refresh your session",
+          });
+        }
+
+        const result = await userService.refreshSession(sessionToken);
+
+        // Reset the cookie with the updated expiration date!
+        if (ctx.res) {
+          ctx.res.cookie(cookieKey, sessionToken, {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: "lax",
+            path: "/",
+            expires: result.expiresAt,
+          });
+        }
+
+        return result;
+      } catch (error: any) {
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error.message || "Failed to refresh session",
+        });
+      }
+    }),
+
+  changePassword: publicProcedure.meta(
+    {
+      openapi:
+      {
+        method: "POST",
+        path: getPath("/changePassword"),
+        tags: TAGS
+      }
+    })
+    .input(changePasswordInputModel)
+    .output(changePasswordOutputModel)
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+        if (!sessionToken) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "You must be logged in to change your password",
+          });
+        }
+
+        return await userService.changePassword(sessionToken, input);
+      } catch (error: any) {
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: error.message || "Failed to change password",
+        });
+      }
+    }),
+
+  deleteAccount: publicProcedure.meta(
+    {
+      openapi:
+      {
+        method: "POST",
+        path: getPath("/deleteAccount"),
+        tags: TAGS
+      }
+    })
+    .input(deleteAccountInputModel)
+    .output(deleteAccountOutputModel)
+    .mutation(async ({ ctx }) => {
+      try {
+        const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+        if (!sessionToken) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "You must be logged in to delete your account",
+          });
+        }
+
+        const result = await userService.deleteAccount(sessionToken);
+
+        // Clear the cookie upon account deletion!
+        if (ctx.res) {
+          ctx.res.clearCookie(cookieKey, {
+            httpOnly: true,
+            secure: isProd,
+            sameSite: "lax",
+            path: "/",
+          });
+        }
+
+        return result;
+      } catch (error: any) {
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error.message || "Failed to delete account",
+        });
+      }
+    }),
+
+  updateProfile: publicProcedure.meta(
+    {
+      openapi:
+      {
+        method: "POST",
+        path: getPath("/updateProfile"),
+        tags: TAGS
+      }
+    })
+    .input(updateProfileInputModel)
+    .output(updateProfileOutputModel)
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+        if (!sessionToken) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "You must be logged in to update your profile",
+          });
+        }
+
+        return await userService.updateProfile(sessionToken, input);
+      } catch (error: any) {
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: error.message || "Failed to update profile",
         });
       }
     }),

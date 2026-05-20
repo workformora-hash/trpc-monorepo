@@ -724,19 +724,20 @@ class UserService {
       }
       user = u;
 
-      // Update tokens in db
-      const encryptedAccessToken = tokens.access_token ? encrypt(tokens.access_token) : null;
-      const encryptedRefreshToken = tokens.refresh_token ? encrypt(tokens.refresh_token) : null;
-      const tokenExpiresAt = tokens.expiry_date ? new Date(tokens.expiry_date) : null;
+      // Update tokens in db safely without overwriting previous refresh tokens if they aren't returned by Google
+      const updateData: Partial<typeof oauthAccountsTable.$inferInsert> & { updatedAt: Date } = {
+        accessToken: tokens.access_token ? encrypt(tokens.access_token) : null,
+        tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+        updatedAt: new Date(),
+      };
+
+      if (tokens.refresh_token) {
+        updateData.refreshToken = encrypt(tokens.refresh_token);
+      }
 
       await db
         .update(oauthAccountsTable)
-        .set({
-          accessToken: encryptedAccessToken,
-          refreshToken: encryptedRefreshToken,
-          tokenExpiresAt,
-          updatedAt: new Date(),
-        })
+        .set(updateData)
         .where(eq(oauthAccountsTable.id, existingOauthAccount.id));
     } else {
       // No existing OAuth connection for this Google Account ID.
@@ -848,6 +849,238 @@ class UserService {
         name: user.name,
         email: user.email,
         role: user.role,
+      },
+    };
+  }
+
+  public async getActiveSessions(token: string) {
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    
+    // Get active session first to retrieve userId
+    const [activeSession] = await db
+      .select()
+      .from(sessionsTable)
+      .where(eq(sessionsTable.tokenHash, tokenHash))
+      .limit(1);
+
+    if (!activeSession) {
+      throw new Error("Invalid session");
+    }
+
+    const sessions = await db
+      .select()
+      .from(sessionsTable)
+      .where(
+        and(
+          eq(sessionsTable.userId, activeSession.userId),
+          gt(sessionsTable.expiresAt, new Date())
+        )
+      )
+      .orderBy(sql`${sessionsTable.lastActiveAt} DESC`);
+
+    return {
+      sessions: sessions.map((s) => ({
+        id: s.id,
+        ipAddress: s.ipAddress,
+        userAgent: s.userAgent,
+        metadata: s.metadata,
+        lastActiveAt: s.lastActiveAt,
+        isCurrent: s.tokenHash === tokenHash,
+      }))
+    };
+  }
+
+  public async revokeSessionById(token: string, sessionId: string) {
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    
+    const [activeSession] = await db
+      .select()
+      .from(sessionsTable)
+      .where(eq(sessionsTable.tokenHash, tokenHash))
+      .limit(1);
+
+    if (!activeSession) {
+      throw new Error("Invalid session");
+    }
+
+    const [revokedSession] = await db
+      .select()
+      .from(sessionsTable)
+      .where(
+        and(
+          eq(sessionsTable.id, sessionId),
+          eq(sessionsTable.userId, activeSession.userId)
+        )
+      )
+      .limit(1);
+
+    if (!revokedSession) {
+      throw new Error("Session not found or unauthorized");
+    }
+
+    const isCurrent = revokedSession.tokenHash === tokenHash;
+
+    await db
+      .delete(sessionsTable)
+      .where(eq(sessionsTable.id, sessionId));
+
+    return { success: true, isCurrent };
+  }
+
+  public async refreshSession(token: string) {
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30-day session
+    
+    const [activeSession] = await db
+      .update(sessionsTable)
+      .set({ expiresAt })
+      .where(eq(sessionsTable.tokenHash, tokenHash))
+      .returning();
+
+    if (!activeSession) {
+      throw new Error("Invalid or expired session");
+    }
+
+    return { success: true, expiresAt };
+  }
+
+  public async changePassword(
+    token: string,
+    input: { currentPassword; newPassword }
+  ) {
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    
+    // 1. Fetch current active session
+    const [activeSession] = await db
+      .select()
+      .from(sessionsTable)
+      .where(eq(sessionsTable.tokenHash, tokenHash))
+      .limit(1);
+
+    if (!activeSession) {
+      throw new Error("Invalid or expired session");
+    }
+
+    // 2. Fetch credentials
+    const [credentials] = await db
+      .select()
+      .from(credentialsTable)
+      .where(eq(credentialsTable.userId, activeSession.userId))
+      .limit(1);
+
+    if (!credentials) {
+      throw new Error("This account is configured for third-party sign-in. You cannot change your password.");
+    }
+
+    // 3. Verify current password
+    const isPasswordValid = await bcrypt.compare(input.currentPassword, credentials.passwordHash);
+    if (!isPasswordValid) {
+      throw new Error("Incorrect current password");
+    }
+
+    // 4. Hash and update new password
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(input.newPassword, salt);
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(credentialsTable)
+        .set({
+          passwordHash,
+          failedAttempts: 0,
+          lockedUntil: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(credentialsTable.id, credentials.id));
+
+      // 5. Revoke all other active sessions for this user for security
+      await tx
+        .delete(sessionsTable)
+        .where(
+          and(
+            eq(sessionsTable.userId, activeSession.userId),
+            sql`${sessionsTable.tokenHash} != ${tokenHash}`
+          )
+        );
+    });
+
+    return { success: true };
+  }
+
+  public async deleteAccount(token: string) {
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    
+    // 1. Fetch current active session
+    const [activeSession] = await db
+      .select()
+      .from(sessionsTable)
+      .where(eq(sessionsTable.tokenHash, tokenHash))
+      .limit(1);
+
+    if (!activeSession) {
+      throw new Error("Invalid or expired session");
+    }
+
+    const userId = activeSession.userId;
+
+    await db.transaction(async (tx) => {
+      // 2. Soft-delete user
+      await tx
+        .update(usersTable)
+        .set({
+          isActive: false,
+          deletedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(usersTable.id, userId));
+
+      // 3. Delete all active sessions
+      await tx
+        .delete(sessionsTable)
+        .where(eq(sessionsTable.userId, userId));
+    });
+
+    return { success: true };
+  }
+
+  public async updateProfile(token: string, input: { name?: string }) {
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    
+    const [activeSession] = await db
+      .select()
+      .from(sessionsTable)
+      .where(eq(sessionsTable.tokenHash, tokenHash))
+      .limit(1);
+
+    if (!activeSession) {
+      throw new Error("Invalid or expired session");
+    }
+
+    const userId = activeSession.userId;
+    const updateData: Partial<typeof usersTable.$inferInsert> & { updatedAt: Date } = {
+      updatedAt: new Date(),
+    };
+
+    if (input.name) {
+      updateData.name = input.name;
+    }
+
+    const [updatedUser] = await db
+      .update(usersTable)
+      .set(updateData)
+      .where(eq(usersTable.id, userId))
+      .returning();
+
+    if (!updatedUser) {
+      throw new Error("Failed to update profile");
+    }
+
+    return {
+      success: true,
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
       },
     };
   }
