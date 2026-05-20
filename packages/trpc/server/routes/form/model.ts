@@ -401,6 +401,16 @@ export const getFormAnalyticsOutputModel = z.object({
   ),
 });
 
+export const deleteResponseInputModel = z.object({
+  responseId: z.string().uuid("Invalid response ID format"),
+});
+
+export const deleteResponseOutputModel = z.object({
+  success: z.boolean(),
+  responseId: z.string(),
+});
+
+
 
 
 

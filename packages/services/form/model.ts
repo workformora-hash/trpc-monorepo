@@ -196,6 +196,13 @@ export const getFormAnalyticsInput = z.object({
 
 export type GetFormAnalyticsInputType = z.infer<typeof getFormAnalyticsInput>;
 
+export const deleteResponseInput = z.object({
+  responseId: z.string().uuid("Invalid response ID format"),
+});
+
+export type DeleteResponseInputType = z.infer<typeof deleteResponseInput>;
+
+
 
 
 

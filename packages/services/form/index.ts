@@ -7,8 +7,8 @@ import { formResponsesTable } from "@repo/database/models/form-response";
 import { formFieldAnswersTable } from "@repo/database/models/form-field-answer";
 import { SYSTEM_THEMES } from "./themes";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType } from "./model";
 
 class FormService {
   private async getUserIdFromToken(token: string): Promise<string> {
@@ -1253,6 +1253,51 @@ class FormService {
     return {
       totalResponses,
       fieldAnalytics: fieldAnalyticsList,
+    };
+  }
+
+  public async deleteResponse(token: string, payload: DeleteResponseInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await deleteResponseInput.parseAsync(payload);
+
+    // 1. Fetch response and verify form ownership
+    const [existingResponse] = await db
+      .select({
+        id: formResponsesTable.id,
+        formId: formResponsesTable.formId,
+        formUserId: formsTable.userId,
+      })
+      .from(formResponsesTable)
+      .innerJoin(formsTable, eq(formResponsesTable.formId, formsTable.id))
+      .where(
+        and(
+          eq(formResponsesTable.id, validated.responseId),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!existingResponse) {
+      throw new Error("Response not found");
+    }
+
+    if (existingResponse.formUserId !== userId) {
+      throw new Error("You are not authorized to delete this response");
+    }
+
+    // 2. Delete the response (foreign keys cascade to answers table)
+    const [deleted] = await db
+      .delete(formResponsesTable)
+      .where(eq(formResponsesTable.id, validated.responseId))
+      .returning();
+
+    if (!deleted) {
+      throw new Error("Failed to delete response");
+    }
+
+    return {
+      success: true,
+      responseId: deleted.id,
     };
   }
 }
