@@ -3,8 +3,8 @@ import { formsTable } from "@repo/database/models/form";
 import { sessionsTable } from "@repo/database/models/sessions";
 import { usersTable } from "@repo/database/models/user";
 import crypto from "crypto";
-import { createFormInput } from "./model";
-import type { CreateFormInputType } from "./model";
+import { createFormInput, editFormInput } from "./model";
+import type { CreateFormInputType, EditFormInputType } from "./model";
 
 class FormService {
   private async getUserIdFromToken(token: string): Promise<string> {
@@ -111,6 +111,135 @@ class FormService {
     }
 
     return newForm;
+  }
+
+  public async editForm(token: string, payload: EditFormInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await editFormInput.parseAsync(payload);
+
+    // 1. Fetch form first to ensure it exists and belongs to this user
+    const [existingForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.id),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!existingForm) {
+      throw new Error("Form not found");
+    }
+
+    if (existingForm.userId !== userId) {
+      throw new Error("You are not authorized to edit this form");
+    }
+
+    const updateData: Partial<typeof formsTable.$inferInsert> & { updatedAt: Date } = {
+      updatedAt: new Date(),
+    };
+
+    if (validated.title !== undefined) {
+      updateData.title = validated.title;
+    }
+
+    if (validated.description !== undefined) {
+      updateData.description = validated.description;
+    }
+
+    if (validated.isPublished !== undefined) {
+      updateData.isPublished = validated.isPublished;
+    }
+
+    if (validated.visibility !== undefined) {
+      updateData.visibility = validated.visibility;
+    }
+
+    if (validated.theme !== undefined) {
+      updateData.theme = validated.theme;
+    }
+
+    if (validated.slug !== undefined && validated.slug !== existingForm.slug) {
+      if (validated.slug) {
+        const normalizedSlug = validated.slug.toLowerCase().trim();
+        // Check if custom slug is already taken by a different form
+        const [slugOwner] = await db
+          .select()
+          .from(formsTable)
+          .where(
+            and(
+              eq(formsTable.slug, normalizedSlug),
+              sql`${formsTable.id} <> ${existingForm.id}`
+            )
+          )
+          .limit(1);
+
+        if (slugOwner) {
+          throw new Error("Slug is already in use. Please choose a different custom URL.");
+        }
+        updateData.slug = normalizedSlug;
+      } else {
+        // If they explicitly nullified the custom slug, we can regenerate a unique slug from title
+        const titleToUse = validated.title || existingForm.title;
+        let slug = "";
+        let isUnique = false;
+        let attempts = 0;
+        while (!isUnique && attempts < 5) {
+          let slugBase = titleToUse
+            .toString()
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, "-")
+            .replace(/[^\w\-]+/g, "")
+            .replace(/\-\-+/g, "-")
+            .replace(/^-+/, "")
+            .replace(/-+$/, "");
+
+          if (!slugBase) {
+            slugBase = "form";
+          }
+
+          const randomSuffix = crypto.randomBytes(3).toString("hex");
+          const candidateSlug = `${slugBase}-${randomSuffix}`;
+
+          const [duplicateForm] = await db
+            .select()
+            .from(formsTable)
+            .where(
+              and(
+                eq(formsTable.slug, candidateSlug),
+                sql`${formsTable.id} <> ${existingForm.id}`
+              )
+            )
+            .limit(1);
+
+          if (!duplicateForm) {
+            slug = candidateSlug;
+            isUnique = true;
+          }
+          attempts++;
+        }
+
+        if (!slug) {
+          slug = crypto.randomUUID();
+        }
+        updateData.slug = slug;
+      }
+    }
+
+    const [updatedForm] = await db
+      .update(formsTable)
+      .set(updateData)
+      .where(eq(formsTable.id, existingForm.id))
+      .returning();
+
+    if (!updatedForm) {
+      throw new Error("Failed to update form");
+    }
+
+    return updatedForm;
   }
 }
 

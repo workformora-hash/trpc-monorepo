@@ -2,7 +2,7 @@ import { formService } from "../../services";
 import { publicProcedure, router } from "../../trpc";
 import { generatePath } from "../../utils/path-generator";
 import { TRPCError } from "@trpc/server";
-import { createFormInputModel, createFormOutputModel } from "./model";
+import { createFormInputModel, createFormOutputModel, editFormInputModel, editFormOutputModel } from "./model";
 
 const TAGS = ["Forms"];
 const getPath = generatePath("/forms");
@@ -67,6 +67,64 @@ export const formRouter = router({
       throw new TRPCError({
         code: isSessionError ? "UNAUTHORIZED" : "BAD_REQUEST",
         message: error.message || "Failed to create form",
+      });
+    }
+  }),
+
+  editForm: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/edit"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(editFormInputModel)
+  .output(editFormOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to edit a form",
+        });
+      }
+
+      const form = await formService.editForm(sessionToken, input);
+
+      return {
+        form: {
+          id: form.id,
+          userId: form.userId,
+          title: form.title,
+          description: form.description,
+          slug: form.slug,
+          isPublished: form.isPublished,
+          visibility: form.visibility,
+          theme: form.theme,
+          createdAt: form.createdAt,
+          updatedAt: form.updatedAt,
+        }
+      };
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+      
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to edit this form";
+      const isNotFoundError = error.message === "Form not found";
+      
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to edit form",
       });
     }
   }),

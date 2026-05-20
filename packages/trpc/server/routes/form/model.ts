@@ -45,3 +45,57 @@ export const createFormOutputModel = z.object({
     updatedAt: z.date(),
   })
 });
+
+export const editFormInputModel = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+  
+  title: z.string()
+    .describe("Title of the Form")
+    .min(1, "Title must be at least 1 character long")
+    .max(256, "Title must be at most 256 characters long")
+    .optional(),
+  
+  description: z.string()
+    .describe("Description of the Form")
+    .max(2048, "Description must be at most 2048 characters long")
+    .optional()
+    .nullable(),
+
+  slug: z.string()
+    .describe("Custom slug for the form. If provided, it must be unique.")
+    .max(256, "Slug must be at most 256 characters long")
+    .optional()
+    .nullable()
+    .refine((val) => !val || /^[a-z0-9-_]+$/.test(val), {
+      message: "Slug must contain only lowercase letters, numbers, hyphens, and underscores",
+    }),
+
+  isPublished: z.boolean()
+    .describe("Whether the Form is published and accepting responses")
+    .optional(),
+
+  visibility: z.enum(["public", "unlisted"])
+    .describe("Visibility of the Form")
+    .optional(),
+
+  theme: z.string()
+    .describe("Theme name for the form")
+    .max(64, "Theme name must be at most 64 characters long")
+    .optional(),
+});
+
+export const editFormOutputModel = z.object({
+  form: z.object({
+    id: z.string(),
+    userId: z.string(),
+    title: z.string(),
+    description: z.string().nullable(),
+    slug: z.string(),
+    isPublished: z.boolean(),
+    visibility: z.enum(["public", "unlisted"]),
+    theme: z.string(),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+  })
+});
+
