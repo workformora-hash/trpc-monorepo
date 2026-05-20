@@ -255,6 +255,26 @@ export const clearFormResponsesOutputModel = z.object({
   formId: z.string(),
 });
 
+export const listFormThemesOutputModel = z.array(
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string(),
+    styles: z.object({
+      backgroundColor: z.string(),
+      textColor: z.string(),
+      primaryColor: z.string(),
+      buttonBgColor: z.string(),
+      buttonTextColor: z.string(),
+      fontFamily: z.string(),
+      cardBgColor: z.string(),
+      inputBgColor: z.string(),
+      inputBorderColor: z.string(),
+    }),
+  })
+);
+
+
 
 
 

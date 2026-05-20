@@ -24,7 +24,8 @@ import {
   checkSlugAvailabilityInputModel,
   checkSlugAvailabilityOutputModel,
   clearFormResponsesInputModel,
-  clearFormResponsesOutputModel
+  clearFormResponsesOutputModel,
+  listFormThemesOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -535,6 +536,26 @@ export const formRouter = router({
       throw new TRPCError({
         code: errorCode,
         message: error.message || "Failed to clear form responses",
+      });
+    }
+  }),
+
+  listFormThemes: publicProcedure.meta({
+    openapi: {
+      method: "GET",
+      path: getPath("/themes"),
+      tags: TAGS,
+    }
+  })
+  .output(listFormThemesOutputModel)
+  .query(async () => {
+    try {
+      const themes = formService.listFormThemes();
+      return themes;
+    } catch (error: any) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: error.message || "Failed to list form themes",
       });
     }
   }),

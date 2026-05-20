@@ -4,6 +4,7 @@ import { sessionsTable } from "@repo/database/models/sessions";
 import { usersTable } from "@repo/database/models/user";
 import { formFieldsTable } from "@repo/database/models/form-field";
 import { formResponsesTable } from "@repo/database/models/form-response";
+import { SYSTEM_THEMES } from "./themes";
 import crypto from "crypto";
 import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput } from "./model";
 import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType } from "./model";
@@ -614,6 +615,10 @@ class FormService {
       success: true,
       formId: existingForm.id,
     };
+  }
+
+  public listFormThemes() {
+    return SYSTEM_THEMES;
   }
 }
 
