@@ -384,6 +384,24 @@ export const listResponsesOutputModel = z.object({
   offset: z.number(),
 });
 
+export const getFormAnalyticsInputModel = z.object({
+  formId: z.string().uuid("Invalid form ID format"),
+});
+
+export const getFormAnalyticsOutputModel = z.object({
+  totalResponses: z.number(),
+  fieldAnalytics: z.array(
+    z.object({
+      fieldId: z.string(),
+      label: z.string(),
+      type: z.string(),
+      totalAnswers: z.number(),
+      stats: z.record(z.string(), z.unknown()),
+    })
+  ),
+});
+
+
 
 
 

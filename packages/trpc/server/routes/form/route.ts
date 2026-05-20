@@ -37,7 +37,9 @@ import {
   submitResponseInputModel,
   submitResponseOutputModel,
   listResponsesInputModel,
-  listResponsesOutputModel
+  listResponsesOutputModel,
+  getFormAnalyticsInputModel,
+  getFormAnalyticsOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -820,6 +822,50 @@ export const formRouter = router({
       throw new TRPCError({
         code: errorCode,
         message: error.message || "Failed to retrieve form responses",
+      });
+    }
+  }),
+
+  getFormAnalytics: publicProcedure.meta({
+    openapi: {
+      method: "GET",
+      path: getPath("/analytics"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(getFormAnalyticsInputModel)
+  .output(getFormAnalyticsOutputModel)
+  .query(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to view analytics",
+        });
+      }
+
+      const result = await formService.getFormAnalytics(sessionToken, input);
+      return result;
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to view analytics for this form";
+      const isNotFoundError = error.message === "Form not found";
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to retrieve form analytics",
       });
     }
   }),

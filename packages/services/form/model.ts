@@ -190,6 +190,13 @@ export const listResponsesInput = z.object({
 
 export type ListResponsesInputType = z.infer<typeof listResponsesInput>;
 
+export const getFormAnalyticsInput = z.object({
+  formId: z.string().uuid("Invalid form ID format"),
+});
+
+export type GetFormAnalyticsInputType = z.infer<typeof getFormAnalyticsInput>;
+
+
 
 
 

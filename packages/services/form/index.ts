@@ -7,8 +7,8 @@ import { formResponsesTable } from "@repo/database/models/form-response";
 import { formFieldAnswersTable } from "@repo/database/models/form-field-answer";
 import { SYSTEM_THEMES } from "./themes";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType } from "./model";
 
 class FormService {
   private async getUserIdFromToken(token: string): Promise<string> {
@@ -1090,6 +1090,169 @@ class FormService {
       total,
       limit: validated.limit ?? 50,
       offset: validated.offset ?? 0,
+    };
+  }
+
+  public async getFormAnalytics(token: string, payload: GetFormAnalyticsInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await getFormAnalyticsInput.parseAsync(payload);
+
+    // 1. Verify form exists and is owned by the creator
+    const [existingForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.formId),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!existingForm) {
+      throw new Error("Form not found");
+    }
+
+    if (existingForm.userId !== userId) {
+      throw new Error("You are not authorized to view analytics for this form");
+    }
+
+    // 2. Query total response count
+    const [countResult] = await db
+      .select({
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(formResponsesTable)
+      .where(eq(formResponsesTable.formId, validated.formId));
+
+    const totalResponses = Number(countResult?.count ?? 0);
+
+    // 3. Fetch all fields for this form
+    const fields = await db
+      .select()
+      .from(formFieldsTable)
+      .where(eq(formFieldsTable.formId, validated.formId))
+      .orderBy(sql`${formFieldsTable.orderIndex} ASC`);
+
+    if (fields.length === 0) {
+      return {
+        totalResponses,
+        fieldAnalytics: [],
+      };
+    }
+
+    // 4. Fetch all answers for all fields of this form
+    const fieldIds = fields.map((f) => f.id);
+    const answers = await db
+      .select({
+        id: formFieldAnswersTable.id,
+        responseId: formFieldAnswersTable.responseId,
+        fieldId: formFieldAnswersTable.fieldId,
+        value: formFieldAnswersTable.value,
+        submittedAt: formResponsesTable.submittedAt,
+      })
+      .from(formFieldAnswersTable)
+      .innerJoin(formResponsesTable, eq(formFieldAnswersTable.responseId, formResponsesTable.id))
+      .where(inArray(formFieldAnswersTable.fieldId, fieldIds))
+      .orderBy(sql`${formResponsesTable.submittedAt} DESC`);
+
+    // 5. Aggregate Analytics per Field
+    const fieldAnalyticsList = fields.map((field) => {
+      const fieldAnswers = answers.filter((ans) => ans.fieldId === field.id);
+      const totalAnswers = fieldAnswers.length;
+
+      // Extract raw values
+      const rawValues = fieldAnswers.map((ans) => {
+        const valObj = ans.value as { value?: unknown };
+        return valObj?.value;
+      }).filter((v) => v !== undefined && v !== null && v !== "");
+
+      let stats: Record<string, any> = {};
+
+      switch (field.type) {
+        case "single_select":
+        case "multi_select": {
+          const choiceCounts: Record<string, number> = {};
+          // Initialize defined options with zero count
+          const config = (field.validation as Record<string, any>) || {};
+          const options = config.options || [];
+          for (const opt of options) {
+            choiceCounts[opt] = 0;
+          }
+
+          for (const val of rawValues) {
+            if (Array.isArray(val)) {
+              for (const item of val) {
+                if (typeof item === "string") {
+                  choiceCounts[item] = (choiceCounts[item] ?? 0) + 1;
+                }
+              }
+            } else if (typeof val === "string") {
+              choiceCounts[val] = (choiceCounts[val] ?? 0) + 1;
+            }
+          }
+          stats = { choiceCounts };
+          break;
+        }
+
+        case "checkbox": {
+          let trueCount = 0;
+          let falseCount = 0;
+          for (const val of rawValues) {
+            if (val === true) trueCount++;
+            if (val === false) falseCount++;
+          }
+          stats = { trueCount, falseCount };
+          break;
+        }
+
+        case "rating": {
+          const ratingCounts: Record<number, number> = {};
+          let ratingSum = 0;
+          let ratingCount = 0;
+
+          for (const val of rawValues) {
+            const num = Number(val);
+            if (!isNaN(num)) {
+              ratingCounts[num] = (ratingCounts[num] ?? 0) + 1;
+              ratingSum += num;
+              ratingCount++;
+            }
+          }
+
+          const averageRating = ratingCount > 0 ? Number((ratingSum / ratingCount).toFixed(2)) : 0;
+          stats = { averageRating, ratingCounts };
+          break;
+        }
+
+        case "short_text":
+        case "long_text":
+        case "email":
+        case "date": {
+          // Take the 5 most recent answers
+          const recentAnswers = rawValues
+            .filter((v): v is string => typeof v === "string")
+            .slice(0, 5);
+          stats = { recentAnswers };
+          break;
+        }
+
+        default:
+          stats = {};
+      }
+
+      return {
+        fieldId: field.id,
+        label: field.label,
+        type: field.type,
+        totalAnswers,
+        stats,
+      };
+    });
+
+    return {
+      totalResponses,
+      fieldAnalytics: fieldAnalyticsList,
     };
   }
 }
