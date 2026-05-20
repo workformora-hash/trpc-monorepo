@@ -7,8 +7,8 @@ import { formResponsesTable } from "@repo/database/models/form-response";
 import { formFieldAnswersTable } from "@repo/database/models/form-field-answer";
 import { SYSTEM_THEMES } from "./themes";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput, exportResponsesToCSVInput, getResponseByIdInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType, ExportResponsesToCSVInputType, GetResponseByIdInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput, exportResponsesToCSVInput, getResponseByIdInput, restoreDeletedFormInput, archiveFormInput, unarchiveFormInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType, ExportResponsesToCSVInputType, GetResponseByIdInputType, RestoreDeletedFormInputType, ArchiveFormInputType, UnarchiveFormInputType } from "./model";
 
 class FormService {
   private async getUserIdFromToken(token: string): Promise<string> {
@@ -106,6 +106,8 @@ class FormService {
         slug,
         visibility: validated.visibility,
         theme: validated.theme,
+        expiresAt: validated.expiresAt ?? null,
+        maxResponses: validated.maxResponses ?? null,
         isPublished: false, // forms start unpublished
       })
       .returning();
@@ -163,6 +165,14 @@ class FormService {
 
     if (validated.theme !== undefined) {
       updateData.theme = validated.theme;
+    }
+
+    if (validated.expiresAt !== undefined) {
+      updateData.expiresAt = validated.expiresAt;
+    }
+
+    if (validated.maxResponses !== undefined) {
+      updateData.maxResponses = validated.maxResponses;
     }
 
     if (validated.slug !== undefined && validated.slug !== existingForm.slug) {
@@ -262,6 +272,10 @@ class FormService {
 
     if (!form) {
       throw new Error("Form not found");
+    }
+
+    if (form.isArchived) {
+      throw new Error("This form has been archived and is no longer accepting responses");
     }
 
     if (!form.isPublished) {
@@ -826,8 +840,30 @@ class FormService {
       throw new Error("Form not found");
     }
 
+    if (form.isArchived) {
+      throw new Error("This form is archived and cannot accept responses");
+    }
+
     if (!form.isPublished) {
       throw new Error("This form is not published and cannot accept responses");
+    }
+
+    if (form.expiresAt && new Date() > form.expiresAt) {
+      throw new Error("This form has expired and is no longer accepting responses");
+    }
+
+    if (form.maxResponses !== null && form.maxResponses !== undefined) {
+      const [countResult] = await db
+        .select({
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(formResponsesTable)
+        .where(eq(formResponsesTable.formId, form.id));
+
+      const totalResponses = Number(countResult?.count ?? 0);
+      if (totalResponses >= form.maxResponses) {
+        throw new Error("This form has reached its maximum number of allowed responses");
+      }
     }
 
     // 2. Fetch all fields for this form
@@ -1032,12 +1068,22 @@ class FormService {
     }
 
     // 2. Query total responses count for pagination metadata
+    const conditions = [eq(formResponsesTable.formId, validated.formId)];
+
+    if (validated.respondentEmail) {
+      conditions.push(sql`${formResponsesTable.respondentEmail} ILIKE ${'%' + validated.respondentEmail + '%'}`);
+    }
+
+    if (validated.ipAddress) {
+      conditions.push(eq(formResponsesTable.ipAddress, validated.ipAddress));
+    }
+
     const [countResult] = await db
       .select({
         count: sql<number>`COUNT(*)`,
       })
       .from(formResponsesTable)
-      .where(eq(formResponsesTable.formId, validated.formId));
+      .where(and(...conditions));
 
     const total = Number(countResult?.count ?? 0);
 
@@ -1045,7 +1091,7 @@ class FormService {
     const responses = await db
       .select()
       .from(formResponsesTable)
-      .where(eq(formResponsesTable.formId, validated.formId))
+      .where(and(...conditions))
       .orderBy(sql`${formResponsesTable.submittedAt} DESC`)
       .limit(validated.limit ?? 50)
       .offset(validated.offset ?? 0);
@@ -1495,6 +1541,152 @@ class FormService {
       },
       answers: enrichedAnswers,
     };
+  }
+
+  public async restoreDeletedForm(token: string, payload: RestoreDeletedFormInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await restoreDeletedFormInput.parseAsync(payload);
+
+    // 1. Fetch the soft-deleted form
+    const [deletedForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.id),
+          sql`${formsTable.deletedAt} IS NOT NULL`
+        )
+      )
+      .limit(1);
+
+    if (!deletedForm) {
+      throw new Error("Deleted form not found");
+    }
+
+    if (deletedForm.userId !== userId) {
+      throw new Error("You are not authorized to restore this form");
+    }
+
+    // 2. Check if the slug is still available (another form may have claimed it)
+    const [slugConflict] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.slug, deletedForm.slug),
+          sql`${formsTable.deletedAt} IS NULL`,
+          sql`${formsTable.id} <> ${deletedForm.id}`
+        )
+      )
+      .limit(1);
+
+    let newSlug = deletedForm.slug;
+    if (slugConflict) {
+      // Generate a new unique slug
+      const randomSuffix = crypto.randomBytes(3).toString("hex");
+      newSlug = `${deletedForm.slug}-restored-${randomSuffix}`;
+    }
+
+    // 3. Restore by clearing deletedAt
+    const [restoredForm] = await db
+      .update(formsTable)
+      .set({
+        deletedAt: null,
+        slug: newSlug,
+        isPublished: false, // Restored forms start unpublished for safety
+        updatedAt: new Date(),
+      })
+      .where(eq(formsTable.id, deletedForm.id))
+      .returning();
+
+    if (!restoredForm) {
+      throw new Error("Failed to restore form");
+    }
+
+    return restoredForm;
+  }
+
+  public async archiveForm(token: string, payload: ArchiveFormInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await archiveFormInput.parseAsync(payload);
+
+    // 1. Fetch form to verify ownership
+    const [existingForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.id),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!existingForm) {
+      throw new Error("Form not found");
+    }
+
+    if (existingForm.userId !== userId) {
+      throw new Error("You are not authorized to archive this form");
+    }
+
+    // 2. Mark as archived and also unpublish it for response safety
+    const [archivedForm] = await db
+      .update(formsTable)
+      .set({
+        isArchived: true,
+        isPublished: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(formsTable.id, existingForm.id))
+      .returning();
+
+    if (!archivedForm) {
+      throw new Error("Failed to archive form");
+    }
+
+    return archivedForm;
+  }
+
+  public async unarchiveForm(token: string, payload: UnarchiveFormInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await unarchiveFormInput.parseAsync(payload);
+
+    // 1. Fetch form to verify ownership
+    const [existingForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.id),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!existingForm) {
+      throw new Error("Form not found");
+    }
+
+    if (existingForm.userId !== userId) {
+      throw new Error("You are not authorized to unarchive this form");
+    }
+
+    // 2. Mark as not archived
+    const [unarchivedForm] = await db
+      .update(formsTable)
+      .set({
+        isArchived: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(formsTable.id, existingForm.id))
+      .returning();
+
+    if (!unarchivedForm) {
+      throw new Error("Failed to unarchive form");
+    }
+
+    return unarchivedForm;
   }
 }
 

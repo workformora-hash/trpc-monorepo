@@ -6,6 +6,8 @@ import {
   boolean,
   pgEnum,
   index,
+  timestamp,
+  integer,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { usersTable } from "./user";
@@ -34,6 +36,10 @@ export const formsTable = pgTable(
     visibility: formVisibilityEnum("visibility").notNull().default("unlisted"),
 
     theme: varchar("theme", { length: 64 }).notNull().default("default"),
+
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    maxResponses: integer("max_responses"),
+    isArchived: boolean("is_archived").notNull().default(false),
 
     ...timestamps,
     ...softDelete,

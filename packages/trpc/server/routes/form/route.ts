@@ -47,7 +47,13 @@ import {
   exportResponsesToCSVInputModel,
   exportResponsesToCSVOutputModel,
   getResponseByIdInputModel,
-  getResponseByIdOutputModel
+  getResponseByIdOutputModel,
+  restoreDeletedFormInputModel,
+  restoreDeletedFormOutputModel,
+  archiveFormInputModel,
+  archiveFormOutputModel,
+  unarchiveFormInputModel,
+  unarchiveFormOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -66,6 +72,41 @@ const getCookieValue = (cookieHeader?: string, name: string = "session_token"): 
     }
   }
   return undefined;
+};
+
+interface RateLimitRecord {
+  count: number;
+  resetAt: number;
+}
+
+const rateLimitMap = new Map<string, RateLimitRecord>();
+
+const rateLimiter = (ip: string, action: string, limit: number, windowMs: number): boolean => {
+  const key = `${ip}:${action}`;
+  const now = Date.now();
+  const record = rateLimitMap.get(key);
+
+  if (!record || now > record.resetAt) {
+    rateLimitMap.set(key, {
+      count: 1,
+      resetAt: now + windowMs,
+    });
+    return true;
+  }
+
+  if (record.count >= limit) {
+    return false;
+  }
+
+  record.count++;
+  return true;
+};
+
+const parseIpAddress = (req?: any): string | undefined => {
+  if (!req) return undefined;
+  const rawIp = (req.headers?.["x-forwarded-for"] as string) || req.ip;
+  if (!rawIp) return undefined;
+  return rawIp.split(",")[0].trim().substring(0, 45);
 };
 
 export const formRouter = router({
@@ -102,6 +143,9 @@ export const formRouter = router({
           isPublished: form.isPublished,
           visibility: form.visibility,
           theme: form.theme,
+          expiresAt: form.expiresAt,
+          maxResponses: form.maxResponses,
+          isArchived: form.isArchived,
           createdAt: form.createdAt,
           updatedAt: form.updatedAt,
         }
@@ -150,6 +194,9 @@ export const formRouter = router({
           isPublished: form.isPublished,
           visibility: form.visibility,
           theme: form.theme,
+          expiresAt: form.expiresAt,
+          maxResponses: form.maxResponses,
+          isArchived: form.isArchived,
           createdAt: form.createdAt,
           updatedAt: form.updatedAt,
         }
@@ -363,6 +410,9 @@ export const formRouter = router({
           isPublished: form.isPublished,
           visibility: form.visibility,
           theme: form.theme,
+          expiresAt: form.expiresAt,
+          maxResponses: form.maxResponses,
+          isArchived: form.isArchived,
           createdAt: form.createdAt,
           updatedAt: form.updatedAt,
         }
@@ -767,12 +817,18 @@ export const formRouter = router({
   })
   .input(submitResponseInputModel)
   .output(submitResponseOutputModel)
-  .mutation(async ({ input, ctx }) => {
-    try {
-      const ipAddress = (ctx.req?.headers?.["x-forwarded-for"] as string) || ctx.req?.socket?.remoteAddress || null;
+    .mutation(async ({ input, ctx }) => {
+      try {
+        const ipAddress = parseIpAddress(ctx.req) || "unknown_ip";
+        if (!rateLimiter(ipAddress, "submit_response", 10, 60 * 1000)) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: "Too many response submissions. Please try again in a minute.",
+          });
+        }
 
-      const result = await formService.submitResponse(input, ipAddress);
-      return result;
+        const result = await formService.submitResponse(input, ipAddress === "unknown_ip" ? null : ipAddress);
+        return result;
     } catch (error: any) {
       if (error instanceof TRPCError) throw error;
 
@@ -1027,6 +1083,144 @@ export const formRouter = router({
       throw new TRPCError({
         code: errorCode,
         message: error.message || "Failed to fetch response details",
+      });
+    }
+  }),
+
+  restoreDeletedForm: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/restore"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(restoreDeletedFormInputModel)
+  .output(restoreDeletedFormOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to restore a form",
+        });
+      }
+
+      const form = await formService.restoreDeletedForm(sessionToken, input);
+      return form;
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to restore this form";
+      const isNotFoundError = error.message === "Deleted form not found";
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to restore form",
+      });
+    }
+  }),
+
+  archiveForm: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/archive"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(archiveFormInputModel)
+  .output(archiveFormOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to archive a form",
+        });
+      }
+
+      const form = await formService.archiveForm(sessionToken, input);
+      return {
+        success: true,
+        form,
+      };
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to archive this form";
+      const isNotFoundError = error.message === "Form not found";
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to archive form",
+      });
+    }
+  }),
+
+  unarchiveForm: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/unarchive"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(unarchiveFormInputModel)
+  .output(unarchiveFormOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to unarchive a form",
+        });
+      }
+
+      const form = await formService.unarchiveForm(sessionToken, input);
+      return {
+        success: true,
+        form,
+      };
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to unarchive this form";
+      const isNotFoundError = error.message === "Form not found";
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to unarchive form",
       });
     }
   }),

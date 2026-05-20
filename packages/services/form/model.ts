@@ -29,6 +29,12 @@ export const createFormInput = z.object({
     .describe("Theme name for the form")
     .max(64, "Theme name must be at most 64 characters long")
     .default("default"),
+
+  expiresAt: z.coerce.date().optional().nullable()
+    .describe("Date and time when the form should stop accepting responses"),
+
+  maxResponses: z.number().int().min(1).optional().nullable()
+    .describe("Maximum number of responses the form can accept"),
 });
 
 export type CreateFormInputType = z.infer<typeof createFormInput>;
@@ -69,6 +75,12 @@ export const editFormInput = z.object({
     .describe("Theme name for the form")
     .max(64, "Theme name must be at most 64 characters long")
     .optional(),
+
+  expiresAt: z.coerce.date().optional().nullable()
+    .describe("Date and time when the form should stop accepting responses"),
+
+  maxResponses: z.number().int().min(1).optional().nullable()
+    .describe("Maximum number of responses the form can accept"),
 });
 
 export type EditFormInputType = z.infer<typeof editFormInput>;
@@ -186,6 +198,8 @@ export const listResponsesInput = z.object({
   formId: z.string().uuid("Invalid form ID format"),
   limit: z.number().int().min(1).max(100).optional().default(50),
   offset: z.number().int().min(0).optional().default(0),
+  respondentEmail: z.string().optional().nullable(),
+  ipAddress: z.string().optional().nullable(),
 });
 
 export type ListResponsesInputType = z.infer<typeof listResponsesInput>;
@@ -220,6 +234,24 @@ export const getResponseByIdInput = z.object({
 });
 
 export type GetResponseByIdInputType = z.infer<typeof getResponseByIdInput>;
+
+export const restoreDeletedFormInput = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export type RestoreDeletedFormInputType = z.infer<typeof restoreDeletedFormInput>;
+
+export const archiveFormInput = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export type ArchiveFormInputType = z.infer<typeof archiveFormInput>;
+
+export const unarchiveFormInput = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export type UnarchiveFormInputType = z.infer<typeof unarchiveFormInput>;
 
 
 

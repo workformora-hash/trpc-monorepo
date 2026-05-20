@@ -22,6 +22,20 @@
       "when": 1779265481641,
       "tag": "0002_dapper_dormammu",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779274524382,
+      "tag": "0003_boring_sasquatch",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779275733811,
+      "tag": "0004_boring_dark_beast",
+      "breakpoints": true
     }
   ]
 }

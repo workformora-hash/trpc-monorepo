@@ -29,6 +29,12 @@ export const createFormInputModel = z.object({
     .describe("Theme name for the form")
     .max(64, "Theme name must be at most 64 characters long")
     .default("default"),
+
+  expiresAt: z.coerce.date().optional().nullable()
+    .describe("Date and time when the form should stop accepting responses"),
+
+  maxResponses: z.number().int().min(1).optional().nullable()
+    .describe("Maximum number of responses the form can accept"),
 });
 
 export const createFormOutputModel = z.object({
@@ -41,6 +47,9 @@ export const createFormOutputModel = z.object({
     isPublished: z.boolean(),
     visibility: z.enum(["public", "unlisted"]),
     theme: z.string(),
+    expiresAt: z.date().nullable(),
+    maxResponses: z.number().nullable(),
+    isArchived: z.boolean(),
     createdAt: z.date(),
     updatedAt: z.date(),
   })
@@ -82,6 +91,12 @@ export const editFormInputModel = z.object({
     .describe("Theme name for the form")
     .max(64, "Theme name must be at most 64 characters long")
     .optional(),
+
+  expiresAt: z.coerce.date().optional().nullable()
+    .describe("Date and time when the form should stop accepting responses"),
+
+  maxResponses: z.number().int().min(1).optional().nullable()
+    .describe("Maximum number of responses the form can accept"),
 });
 
 export const editFormOutputModel = z.object({
@@ -94,6 +109,9 @@ export const editFormOutputModel = z.object({
     isPublished: z.boolean(),
     visibility: z.enum(["public", "unlisted"]),
     theme: z.string(),
+    expiresAt: z.date().nullable(),
+    maxResponses: z.number().nullable(),
+    isArchived: z.boolean(),
     createdAt: z.date(),
     updatedAt: z.date(),
   })
@@ -132,6 +150,9 @@ export const getFormBySlugPublicOutputModel = z.object({
     isPublished: z.boolean(),
     visibility: z.enum(["public", "unlisted"]),
     theme: z.string(),
+    expiresAt: z.date().nullable(),
+    maxResponses: z.number().nullable(),
+    isArchived: z.boolean(),
     createdAt: z.date(),
     updatedAt: z.date(),
   }),
@@ -152,6 +173,9 @@ export const getFormByIdCreatorOutputModel = z.object({
     isPublished: z.boolean(),
     visibility: z.enum(["public", "unlisted"]),
     theme: z.string(),
+    expiresAt: z.date().nullable(),
+    maxResponses: z.number().nullable(),
+    isArchived: z.boolean(),
     createdAt: z.date(),
     updatedAt: z.date(),
   }),
@@ -171,6 +195,9 @@ export const listFormsCreatorOutputModel = z.object({
       isPublished: z.boolean(),
       visibility: z.enum(["public", "unlisted"]),
       theme: z.string(),
+      expiresAt: z.date().nullable(),
+      maxResponses: z.number().nullable(),
+      isArchived: z.boolean(),
       createdAt: z.date(),
       updatedAt: z.date(),
     })
@@ -205,6 +232,9 @@ export const duplicateFormOutputModel = z.object({
     isPublished: z.boolean(),
     visibility: z.enum(["public", "unlisted"]),
     theme: z.string(),
+    expiresAt: z.date().nullable(),
+    maxResponses: z.number().nullable(),
+    isArchived: z.boolean(),
     createdAt: z.date(),
     updatedAt: z.date(),
   })
@@ -361,6 +391,8 @@ export const listResponsesInputModel = z.object({
   formId: z.string().uuid("Invalid form ID format"),
   limit: z.number().int().min(1).max(100).optional().default(50),
   offset: z.number().int().min(0).optional().default(0),
+  respondentEmail: z.string().optional().nullable(),
+  ipAddress: z.string().optional().nullable(),
 });
 
 export const listResponsesOutputModel = z.object({
@@ -426,6 +458,9 @@ export const listPublicFormsOutputModel = z.object({
       isPublished: z.boolean(),
       visibility: z.string(),
       theme: z.string(),
+      expiresAt: z.date().nullable(),
+      maxResponses: z.number().nullable(),
+      isArchived: z.boolean(),
       createdAt: z.date(),
       updatedAt: z.date(),
     })
@@ -462,6 +497,70 @@ export const getResponseByIdOutputModel = z.object({
       value: z.unknown(),
     })
   ),
+});
+
+export const restoreDeletedFormInputModel = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export const restoreDeletedFormOutputModel = z.object({
+  id: z.string(),
+  userId: z.string(),
+  title: z.string(),
+  slug: z.string(),
+  isPublished: z.boolean(),
+  visibility: z.string(),
+  theme: z.string(),
+  expiresAt: z.date().nullable(),
+  maxResponses: z.number().nullable(),
+  isArchived: z.boolean(),
+  deletedAt: z.date().nullable(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export const archiveFormInputModel = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export const archiveFormOutputModel = z.object({
+  success: z.boolean(),
+  form: z.object({
+    id: z.string(),
+    userId: z.string(),
+    title: z.string(),
+    slug: z.string(),
+    isPublished: z.boolean(),
+    visibility: z.string(),
+    theme: z.string(),
+    expiresAt: z.date().nullable(),
+    maxResponses: z.number().nullable(),
+    isArchived: z.boolean(),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+  })
+});
+
+export const unarchiveFormInputModel = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export const unarchiveFormOutputModel = z.object({
+  success: z.boolean(),
+  form: z.object({
+    id: z.string(),
+    userId: z.string(),
+    title: z.string(),
+    slug: z.string(),
+    isPublished: z.boolean(),
+    visibility: z.string(),
+    theme: z.string(),
+    expiresAt: z.date().nullable(),
+    maxResponses: z.number().nullable(),
+    isArchived: z.boolean(),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+  })
 });
 
 
