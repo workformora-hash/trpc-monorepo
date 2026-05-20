@@ -119,6 +119,57 @@ export const clearFormResponsesInput = z.object({
 
 export type ClearFormResponsesInputType = z.infer<typeof clearFormResponsesInput>;
 
+export const fieldTypeSchema = z.enum([
+  "short_text",
+  "long_text",
+  "email",
+  "number",
+  "single_select",
+  "multi_select",
+  "checkbox",
+  "rating",
+  "date"
+]);
+
+export const addFormFieldInput = z.object({
+  formId: z.string().uuid("Invalid form ID format"),
+  label: z.string().min(1, "Label is required").max(512, "Label must be at most 512 characters long"),
+  type: fieldTypeSchema,
+  required: z.boolean().default(false),
+  validation: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type AddFormFieldInputType = z.infer<typeof addFormFieldInput>;
+
+export const editFormFieldInput = z.object({
+  id: z.string().uuid("Invalid field ID format"),
+  label: z.string().min(1, "Label is required").max(512, "Label must be at most 512 characters long").optional(),
+  type: fieldTypeSchema.optional(),
+  required: z.boolean().optional(),
+  validation: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type EditFormFieldInputType = z.infer<typeof editFormFieldInput>;
+
+export const deleteFormFieldInput = z.object({
+  id: z.string().uuid("Invalid field ID format"),
+});
+
+export type DeleteFormFieldInputType = z.infer<typeof deleteFormFieldInput>;
+
+export const reorderFormFieldsInput = z.object({
+  formId: z.string().uuid("Invalid form ID format"),
+  fields: z.array(
+    z.object({
+      id: z.string().uuid("Invalid field ID format"),
+      orderIndex: z.number().int("Order index must be an integer"),
+    })
+  ),
+});
+
+export type ReorderFormFieldsInputType = z.infer<typeof reorderFormFieldsInput>;
+
+
 
 
 

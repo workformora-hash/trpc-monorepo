@@ -25,7 +25,15 @@ import {
   checkSlugAvailabilityOutputModel,
   clearFormResponsesInputModel,
   clearFormResponsesOutputModel,
-  listFormThemesOutputModel
+  listFormThemesOutputModel,
+  addFormFieldInputModel,
+  addFormFieldOutputModel,
+  editFormFieldInputModel,
+  editFormFieldOutputModel,
+  deleteFormFieldInputModel,
+  deleteFormFieldOutputModel,
+  reorderFormFieldsInputModel,
+  reorderFormFieldsOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -556,6 +564,182 @@ export const formRouter = router({
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: error.message || "Failed to list form themes",
+      });
+    }
+  }),
+
+  addFormField: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/fields/add"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(addFormFieldInputModel)
+  .output(addFormFieldOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to add a form field",
+        });
+      }
+
+      const field = await formService.addFormField(sessionToken, input);
+      return { field };
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to add fields to this form";
+      const isNotFoundError = error.message === "Form not found";
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to add form field",
+      });
+    }
+  }),
+
+  editFormField: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/fields/edit"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(editFormFieldInputModel)
+  .output(editFormFieldOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to edit a form field",
+        });
+      }
+
+      const field = await formService.editFormField(sessionToken, input);
+      return { field };
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to edit fields for this form";
+      const isNotFoundError = error.message === "Form field not found";
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to edit form field",
+      });
+    }
+  }),
+
+  deleteFormField: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/fields/delete"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(deleteFormFieldInputModel)
+  .output(deleteFormFieldOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to delete a form field",
+        });
+      }
+
+      const result = await formService.deleteFormField(sessionToken, input);
+      return result;
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to delete fields from this form";
+      const isNotFoundError = error.message === "Form field not found";
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to delete form field",
+      });
+    }
+  }),
+
+  reorderFormFields: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/fields/reorder"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(reorderFormFieldsInputModel)
+  .output(reorderFormFieldsOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to reorder form fields",
+        });
+      }
+
+      const result = await formService.reorderFormFields(sessionToken, input);
+      return result;
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to reorder fields in this form";
+      const isNotFoundError = error.message === "Form not found";
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to reorder form fields",
       });
     }
   }),

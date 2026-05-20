@@ -6,8 +6,8 @@ import { formFieldsTable } from "@repo/database/models/form-field";
 import { formResponsesTable } from "@repo/database/models/form-response";
 import { SYSTEM_THEMES } from "./themes";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType } from "./model";
 
 class FormService {
   private async getUserIdFromToken(token: string): Promise<string> {
@@ -619,6 +619,191 @@ class FormService {
 
   public listFormThemes() {
     return SYSTEM_THEMES;
+  }
+
+  public async addFormField(token: string, payload: AddFormFieldInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await addFormFieldInput.parseAsync(payload);
+
+    // 1. Verify form exists and is owned by the creator
+    const [existingForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.formId),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!existingForm) {
+      throw new Error("Form not found");
+    }
+
+    if (existingForm.userId !== userId) {
+      throw new Error("You are not authorized to add fields to this form");
+    }
+
+    // 2. Query for the current max order index to automatically calculate the next index
+    const [maxOrderResult] = await db
+      .select({
+        maxOrder: sql<number>`COALESCE(MAX(${formFieldsTable.orderIndex}), -1)`,
+      })
+      .from(formFieldsTable)
+      .where(eq(formFieldsTable.formId, validated.formId));
+
+    const nextOrderIndex = (maxOrderResult?.maxOrder ?? -1) + 1;
+
+    // 3. Insert the new field
+    const [newField] = await db
+      .insert(formFieldsTable)
+      .values({
+        formId: validated.formId,
+        label: validated.label,
+        type: validated.type,
+        required: validated.required,
+        orderIndex: nextOrderIndex,
+        validation: validated.validation ?? null,
+      })
+      .returning();
+
+    if (!newField) {
+      throw new Error("Failed to add form field");
+    }
+
+    return newField;
+  }
+
+  public async editFormField(token: string, payload: EditFormFieldInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await editFormFieldInput.parseAsync(payload);
+
+    // 1. Fetch the form field and join it with the form table to verify ownership
+    const [fieldWithForm] = await db
+      .select({
+        field: formFieldsTable,
+        form: formsTable,
+      })
+      .from(formFieldsTable)
+      .innerJoin(formsTable, eq(formFieldsTable.formId, formsTable.id))
+      .where(
+        and(
+          eq(formFieldsTable.id, validated.id),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!fieldWithForm) {
+      throw new Error("Form field not found");
+    }
+
+    if (fieldWithForm.form.userId !== userId) {
+      throw new Error("You are not authorized to edit fields for this form");
+    }
+
+    // 2. Update properties
+    const updateValues: Partial<typeof formFieldsTable.$inferInsert> = {};
+    if (validated.label !== undefined) updateValues.label = validated.label;
+    if (validated.type !== undefined) updateValues.type = validated.type;
+    if (validated.required !== undefined) updateValues.required = validated.required;
+    if (validated.validation !== undefined) updateValues.validation = validated.validation;
+
+    const [updatedField] = await db
+      .update(formFieldsTable)
+      .set(updateValues)
+      .where(eq(formFieldsTable.id, validated.id))
+      .returning();
+
+    if (!updatedField) {
+      throw new Error("Failed to edit form field");
+    }
+
+    return updatedField;
+  }
+
+  public async deleteFormField(token: string, payload: DeleteFormFieldInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await deleteFormFieldInput.parseAsync(payload);
+
+    // 1. Fetch form field to verify ownership
+    const [fieldWithForm] = await db
+      .select({
+        field: formFieldsTable,
+        form: formsTable,
+      })
+      .from(formFieldsTable)
+      .innerJoin(formsTable, eq(formFieldsTable.formId, formsTable.id))
+      .where(
+        and(
+          eq(formFieldsTable.id, validated.id),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!fieldWithForm) {
+      throw new Error("Form field not found");
+    }
+
+    if (fieldWithForm.form.userId !== userId) {
+      throw new Error("You are not authorized to delete fields from this form");
+    }
+
+    // 2. Delete field
+    await db
+      .delete(formFieldsTable)
+      .where(eq(formFieldsTable.id, validated.id));
+
+    return {
+      success: true,
+      id: validated.id,
+    };
+  }
+
+  public async reorderFormFields(token: string, payload: ReorderFormFieldsInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await reorderFormFieldsInput.parseAsync(payload);
+
+    // 1. Verify form exists and is owned by the creator
+    const [existingForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.formId),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!existingForm) {
+      throw new Error("Form not found");
+    }
+
+    if (existingForm.userId !== userId) {
+      throw new Error("You are not authorized to reorder fields in this form");
+    }
+
+    // 2. Execute bulk update in database transaction to prevent any half-state glitches
+    await db.transaction(async (tx) => {
+      for (const fieldOrder of validated.fields) {
+        await tx
+          .update(formFieldsTable)
+          .set({ orderIndex: fieldOrder.orderIndex })
+          .where(
+            and(
+              eq(formFieldsTable.id, fieldOrder.id),
+              eq(formFieldsTable.formId, validated.formId)
+            )
+          );
+      }
+    });
+
+    return {
+      success: true,
+    };
   }
 }
 

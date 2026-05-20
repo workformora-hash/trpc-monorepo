@@ -274,6 +274,74 @@ export const listFormThemesOutputModel = z.array(
   })
 );
 
+export const addFormFieldInputModel = z.object({
+  formId: z.string().uuid("Invalid form ID format"),
+  label: z.string().min(1, "Label is required").max(512, "Label must be at most 512 characters long"),
+  type: z.enum([
+    "short_text",
+    "long_text",
+    "email",
+    "number",
+    "single_select",
+    "multi_select",
+    "checkbox",
+    "rating",
+    "date",
+  ]),
+  required: z.boolean().default(false),
+  validation: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const addFormFieldOutputModel = z.object({
+  field: formFieldModel,
+});
+
+export const editFormFieldInputModel = z.object({
+  id: z.string().uuid("Invalid field ID format"),
+  label: z.string().min(1, "Label is required").max(512, "Label must be at most 512 characters long").optional(),
+  type: z.enum([
+    "short_text",
+    "long_text",
+    "email",
+    "number",
+    "single_select",
+    "multi_select",
+    "checkbox",
+    "rating",
+    "date",
+  ]).optional(),
+  required: z.boolean().optional(),
+  validation: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const editFormFieldOutputModel = z.object({
+  field: formFieldModel,
+});
+
+export const deleteFormFieldInputModel = z.object({
+  id: z.string().uuid("Invalid field ID format"),
+});
+
+export const deleteFormFieldOutputModel = z.object({
+  success: z.boolean(),
+  id: z.string(),
+});
+
+export const reorderFormFieldsInputModel = z.object({
+  formId: z.string().uuid("Invalid form ID format"),
+  fields: z.array(
+    z.object({
+      id: z.string().uuid("Invalid field ID format"),
+      orderIndex: z.number().int("Order index must be an integer"),
+    })
+  ),
+});
+
+export const reorderFormFieldsOutputModel = z.object({
+  success: z.boolean(),
+});
+
+
 
 
 
