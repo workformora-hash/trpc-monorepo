@@ -88,7 +88,35 @@ function parseUserAgent(ua?: string): {
   return { os, browser, deviceType };
 }
 
+const COMPROMISED_PASSWORDS = new Set([
+  "password", "password123", "password123!", "12345678", "qwertyui", 
+  "letmein123", "admin123", "welcome123", "pass@123", "qwerty123"
+]);
+
 class UserService {
+  private logSecurityEvent(
+    action: string,
+    details: { userId?: string; ipAddress?: string; userAgent?: string; success: boolean; reason?: string }
+  ) {
+    const logMessage = {
+      timestamp: new Date().toISOString(),
+      event: `AUTH_${action.toUpperCase()}`,
+      userId: details.userId || "anonymous",
+      ipAddress: details.ipAddress || "unknown",
+      userAgent: details.userAgent || "unknown",
+      success: details.success,
+      reason: details.reason || null,
+    };
+    console.info(`[SECURITY_AUDIT] ${JSON.stringify(logMessage)}`);
+  }
+
+  private validatePasswordSecurity(password: string) {
+    const normalized = password.toLowerCase().trim();
+    if (COMPROMISED_PASSWORDS.has(normalized)) {
+      throw new Error("This password is listed in databases of commonly compromised passwords. Please choose a more secure, unique password.");
+    }
+  }
+
   private async getUserByEmail(email: string, includeDeleted = false) {
     const normalizedEmail = email.toLowerCase().trim();
     const query = db
@@ -168,190 +196,217 @@ class UserService {
   }
 
   public async createUserWithEmailAndPassword(payload: CreateUserWithEmailAndPasswordInputType) {
-    const { name, email, password } = await createUserWithEmailAndPasswordInput.parseAsync(payload);
-    const normalizedEmail = email.toLowerCase().trim();
+    try {
+      const { name, email, password } = await createUserWithEmailAndPasswordInput.parseAsync(payload);
+      const normalizedEmail = email.toLowerCase().trim();
 
-    // check if user exist already or not (excluding soft-deleted users so they can re-register)
-    const existingUser = await this.getUserByEmail(normalizedEmail, false);
-    if (existingUser) {
-      throw new Error("User already exists");
+      // check if user exist already or not (excluding soft-deleted users so they can re-register)
+      const existingUser = await this.getUserByEmail(normalizedEmail, false);
+      if (existingUser) {
+        throw new Error("User already exists");
+      }
+
+      this.validatePasswordSecurity(password);
+
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      const token = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+
+      const userId = await db.transaction(async (tx) => {
+        const userInsertResult = await tx.insert(usersTable).values({
+          name: name,
+          email: normalizedEmail,
+        }).returning({
+          id: usersTable.id
+        });
+        const createdUser = userInsertResult?.[0];
+        if (!createdUser) {
+          throw new Error("Failed to create user");
+        }
+
+        const credentialsInsertResult = await tx.insert(credentialsTable).values({
+          userId: createdUser.id,
+          passwordHash: hashedPassword,
+        }).returning({
+          id: credentialsTable.id
+        });
+
+        if (!credentialsInsertResult || credentialsInsertResult.length === 0) {
+          throw new Error("Failed to create user credentials");
+        }
+
+        await tx.insert(emailVerificationTokensTable).values({
+          userId: createdUser.id,
+          tokenHash,
+          type: "email_verification",
+          expiresAt,
+        });
+
+        return createdUser.id;
+      });
+
+      const baseUrl = env.CLIENT_URL;
+      const verificationLink = `${baseUrl}/verify-email?token=${token}`;
+
+      emailService.sendVerificationEmail(normalizedEmail, name, verificationLink)
+        .catch((err) => console.error("Failed to send verification email:", err));
+
+      // Non-blocking auto-purge of stale tokens
+      this.purgeExpiredTokens().catch((err) => console.error("Automatic background token purge failed:", err));
+
+      this.logSecurityEvent("signup", { userId, success: true });
+
+      return {
+        id: userId
+      };
+    } catch (error: any) {
+      this.logSecurityEvent("signup", { success: false, reason: error.message });
+      throw error;
     }
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    const token = crypto.randomBytes(32).toString("hex");
-    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
-
-    const userId = await db.transaction(async (tx) => {
-      const userInsertResult = await tx.insert(usersTable).values({
-        name: name,
-        email: normalizedEmail,
-      }).returning({
-        id: usersTable.id
-      });
-      const createdUser = userInsertResult?.[0];
-      if (!createdUser) {
-        throw new Error("Failed to create user");
-      }
-
-      const credentialsInsertResult = await tx.insert(credentialsTable).values({
-        userId: createdUser.id,
-        passwordHash: hashedPassword,
-      }).returning({
-        id: credentialsTable.id
-      });
-
-      if (!credentialsInsertResult || credentialsInsertResult.length === 0) {
-        throw new Error("Failed to create user credentials");
-      }
-
-      await tx.insert(emailVerificationTokensTable).values({
-        userId: createdUser.id,
-        tokenHash,
-        type: "email_verification",
-        expiresAt,
-      });
-
-      return createdUser.id;
-    });
-
-    const baseUrl = env.CLIENT_URL;
-    const verificationLink = `${baseUrl}/verify-email?token=${token}`;
-
-    emailService.sendVerificationEmail(normalizedEmail, name, verificationLink)
-      .catch((err) => console.error("Failed to send verification email:", err));
-
-    // Non-blocking auto-purge of stale tokens
-    this.purgeExpiredTokens().catch((err) => console.error("Automatic background token purge failed:", err));
-
-    return {
-      id: userId
-    };
   }
 
   public async loginWithEmailAndPassword(
     payload: LoginWithEmailAndPasswordInputType,
     context: { ipAddress?: string; userAgent?: string }
   ) {
-    const { email, password } = await loginWithEmailAndPasswordInput.parseAsync(payload);
-    const normalizedEmail = email.toLowerCase().trim();
+    try {
+      const { email, password } = await loginWithEmailAndPasswordInput.parseAsync(payload);
+      const normalizedEmail = email.toLowerCase().trim();
 
-    // 1. Retrieve the user, ensuring they are not soft-deleted and are active
-    const [user] = await db
-      .select()
-      .from(usersTable)
-      .where(
-        and(
-          eq(usersTable.email, normalizedEmail),
-          sql`${usersTable.deletedAt} IS NULL`,
-          eq(usersTable.isActive, true)
+      // 1. Retrieve the user, ensuring they are not soft-deleted and are active
+      const [user] = await db
+        .select()
+        .from(usersTable)
+        .where(
+          and(
+            eq(usersTable.email, normalizedEmail),
+            sql`${usersTable.deletedAt} IS NULL`,
+            eq(usersTable.isActive, true)
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
 
-    if (!user) {
-      throw new Error("Invalid email or password");
-    }
-
-    // 2. Enforce email verification
-    if (!user.isEmailVerified) {
-      throw new Error("Please verify your email address to log in.");
-    }
-
-    // 3. Retrieve user credentials
-    const [credentials] = await db
-      .select()
-      .from(credentialsTable)
-      .where(eq(credentialsTable.userId, user.id))
-      .limit(1);
-
-    // If credentials row does not exist, this account must be OAuth-only
-    if (!credentials) {
-      throw new Error("This account is configured for third-party sign-in (like Google or GitHub). Please sign in using your provider.");
-    }
-
-    // 4. Check account lockout
-    if (credentials.lockedUntil && credentials.lockedUntil > new Date()) {
-      const remainingMs = credentials.lockedUntil.getTime() - Date.now();
-      const remainingMinutes = Math.ceil(remainingMs / 60000);
-      throw new Error(
-        `This account is temporarily locked due to too many failed attempts. Please try again in ${remainingMinutes} minute(s) or reset your password.`
-      );
-    }
-
-    // 5. Verify the password
-    const isPasswordValid = await bcrypt.compare(password, credentials.passwordHash);
-
-    if (!isPasswordValid) {
-      const failedAttempts = credentials.failedAttempts + 1;
-      let lockedUntil: Date | null = null;
-
-      // Lock account for 15 minutes if failed attempts hit 5 or multiples of 5
-      if (failedAttempts >= 5) {
-        lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+      if (!user) {
+        throw new Error("Invalid email or password");
       }
 
-      // Atomically update the failed attempts count using Drizzle's sql template
+      // 2. Enforce email verification
+      if (!user.isEmailVerified) {
+        throw new Error("Please verify your email address to log in.");
+      }
+
+      // 3. Retrieve user credentials
+      const [credentials] = await db
+        .select()
+        .from(credentialsTable)
+        .where(eq(credentialsTable.userId, user.id))
+        .limit(1);
+
+      // If credentials row does not exist, this account must be OAuth-only
+      if (!credentials) {
+        throw new Error("This account is configured for third-party sign-in (like Google or GitHub). Please sign in using your provider.");
+      }
+
+      // 4. Check account lockout
+      if (credentials.lockedUntil && credentials.lockedUntil > new Date()) {
+        const remainingMs = credentials.lockedUntil.getTime() - Date.now();
+        const remainingMinutes = Math.ceil(remainingMs / 60000);
+        throw new Error(
+          `This account is temporarily locked due to too many failed attempts. Please try again in ${remainingMinutes} minute(s) or reset your password.`
+        );
+      }
+
+      // 5. Verify the password
+      const isPasswordValid = await bcrypt.compare(password, credentials.passwordHash);
+
+      if (!isPasswordValid) {
+        const failedAttempts = credentials.failedAttempts + 1;
+        let lockedUntil: Date | null = null;
+
+        // Lock account for 15 minutes if failed attempts hit 5 or multiples of 5
+        if (failedAttempts >= 5) {
+          lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+        }
+
+        // Atomically update the failed attempts count using Drizzle's sql template
+        await db
+          .update(credentialsTable)
+          .set({
+            failedAttempts: sql`${credentialsTable.failedAttempts} + 1`,
+            lockedUntil,
+          })
+          .where(eq(credentialsTable.id, credentials.id));
+
+        if (failedAttempts >= 5) {
+          throw new Error("Invalid email or password. Your account has been temporarily locked for 15 minutes.");
+        } else {
+          const attemptsRemaining = 5 - failedAttempts;
+          throw new Error(`Invalid email or password. You have ${attemptsRemaining} attempt(s) remaining before your account is locked.`);
+        }
+      }
+
+      // 6. Login successful: Reset lockout parameters
       await db
         .update(credentialsTable)
         .set({
-          failedAttempts: sql`${credentialsTable.failedAttempts} + 1`,
-          lockedUntil,
+          failedAttempts: 0,
+          lockedUntil: null,
         })
         .where(eq(credentialsTable.id, credentials.id));
 
-      if (failedAttempts >= 5) {
-        throw new Error("Invalid email or password. Your account has been temporarily locked for 15 minutes.");
-      } else {
-        const attemptsRemaining = 5 - failedAttempts;
-        throw new Error(`Invalid email or password. You have ${attemptsRemaining} attempt(s) remaining before your account is locked.`);
-      }
-    }
+      // 7. Create user session
+      const sessionToken = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto.createHash("sha256").update(sessionToken).digest("hex");
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30-day session
 
-    // 6. Login successful: Reset lockout parameters
-    await db
-      .update(credentialsTable)
-      .set({
-        failedAttempts: 0,
-        lockedUntil: null,
-      })
-      .where(eq(credentialsTable.id, credentials.id));
+      // Parse user agent metadata
+      const metadata = parseUserAgent(context.userAgent);
 
-    // 7. Create user session
-    const sessionToken = crypto.randomBytes(32).toString("hex");
-    const tokenHash = crypto.createHash("sha256").update(sessionToken).digest("hex");
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30-day session
-
-    // Parse user agent metadata
-    const metadata = parseUserAgent(context.userAgent);
-
-    await db.insert(sessionsTable).values({
-      userId: user.id,
-      tokenHash,
-      ipAddress: context.ipAddress || null,
-      userAgent: context.userAgent || null,
-      metadata,
-      expiresAt,
-    }); 
-
-    // Non-blocking auto-purge of stale tokens
-    this.purgeExpiredTokens().catch((err) => console.error("Automatic background token purge failed:", err));
-
-    return {
-      success: true,
-      token: sessionToken,
-      session: {
-        id: tokenHash,
+      await db.insert(sessionsTable).values({
+        userId: user.id,
+        tokenHash,
+        ipAddress: context.ipAddress || null,
+        userAgent: context.userAgent || null,
+        metadata,
         expiresAt,
-      },
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    };
+      }); 
+
+      // Non-blocking auto-purge of stale tokens
+      this.purgeExpiredTokens().catch((err) => console.error("Automatic background token purge failed:", err));
+
+      this.logSecurityEvent("login", { 
+        userId: user.id, 
+        ipAddress: context.ipAddress, 
+        userAgent: context.userAgent, 
+        success: true 
+      });
+
+      return {
+        success: true,
+        token: sessionToken,
+        session: {
+          id: tokenHash,
+          expiresAt,
+        },
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        },
+      };
+    } catch (error: any) {
+      this.logSecurityEvent("login", { 
+        ipAddress: context.ipAddress, 
+        userAgent: context.userAgent, 
+        success: false, 
+        reason: error.message 
+      });
+      throw error;
+    }
   }
 
   public async resendVerificationEmail(email: string) {
@@ -465,81 +520,90 @@ class UserService {
   }
 
   public async resetPassword(payload: { token: string; password: string }) {
-    const { token, password } = payload;
-    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    try {
+      const { token, password } = payload;
+      const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
-    const [tokenRecord] = await db
-      .select()
-      .from(passwordResetTokensTable)
-      .where(
-        and(
-          eq(passwordResetTokensTable.tokenHash, tokenHash),
-          eq(passwordResetTokensTable.isUsed, false),
-          gt(passwordResetTokensTable.expiresAt, new Date())
+      const [tokenRecord] = await db
+        .select()
+        .from(passwordResetTokensTable)
+        .where(
+          and(
+            eq(passwordResetTokensTable.tokenHash, tokenHash),
+            eq(passwordResetTokensTable.isUsed, false),
+            gt(passwordResetTokensTable.expiresAt, new Date())
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
 
-    if (!tokenRecord) {
-      throw new Error("Invalid or expired password reset token");
-    }
+      if (!tokenRecord) {
+        throw new Error("Invalid or expired password reset token");
+      }
 
-    // Ensure the user account is active and not soft-deleted
-    const [user] = await db
-      .select()
-      .from(usersTable)
-      .where(
-        and(
-          eq(usersTable.id, tokenRecord.userId),
-          sql`${usersTable.deletedAt} IS NULL`,
-          eq(usersTable.isActive, true)
+      // Ensure the user account is active and not soft-deleted
+      const [user] = await db
+        .select()
+        .from(usersTable)
+        .where(
+          and(
+            eq(usersTable.id, tokenRecord.userId),
+            sql`${usersTable.deletedAt} IS NULL`,
+            eq(usersTable.isActive, true)
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
 
-    if (!user) {
-      throw new Error("User account is inactive or not found");
+      if (!user) {
+        throw new Error("User account is inactive or not found");
+      }
+
+      this.validatePasswordSecurity(password);
+
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      await db.transaction(async (tx) => {
+        // 1. Update credentials
+        await tx
+          .update(credentialsTable)
+          .set({
+            passwordHash: hashedPassword,
+            failedAttempts: 0,
+            lockedUntil: null,
+          })
+          .where(eq(credentialsTable.userId, tokenRecord.userId));
+
+        // 2. Mark token as used
+        await tx
+          .update(passwordResetTokensTable)
+          .set({
+            isUsed: true,
+            usedAt: new Date(),
+          })
+          .where(eq(passwordResetTokensTable.id, tokenRecord.id));
+
+        // 3. Mark email as verified since they completed password reset via verification link in their email
+        await tx
+          .update(usersTable)
+          .set({
+            isEmailVerified: true,
+            emailVerifiedAt: new Date(),
+          })
+          .where(eq(usersTable.id, tokenRecord.userId));
+
+        // 4. Revoke all active sessions for security
+        await tx
+          .delete(sessionsTable)
+          .where(eq(sessionsTable.userId, tokenRecord.userId));
+      });
+
+      this.logSecurityEvent("reset_password", { userId: tokenRecord.userId, success: true });
+
+      return { success: true };
+    } catch (error: any) {
+      this.logSecurityEvent("reset_password", { success: false, reason: error.message });
+      throw error;
     }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    await db.transaction(async (tx) => {
-      // 1. Update credentials
-      await tx
-        .update(credentialsTable)
-        .set({
-          passwordHash: hashedPassword,
-          failedAttempts: 0,
-          lockedUntil: null,
-        })
-        .where(eq(credentialsTable.userId, tokenRecord.userId));
-
-      // 2. Mark token as used
-      await tx
-        .update(passwordResetTokensTable)
-        .set({
-          isUsed: true,
-          usedAt: new Date(),
-        })
-        .where(eq(passwordResetTokensTable.id, tokenRecord.id));
-
-      // 3. Mark email as verified since they completed password reset via verification link in their email
-      await tx
-        .update(usersTable)
-        .set({
-          isEmailVerified: true,
-          emailVerifiedAt: new Date(),
-        })
-        .where(eq(usersTable.id, tokenRecord.userId));
-
-      // 4. Revoke all active sessions for security
-      await tx
-        .delete(sessionsTable)
-        .where(eq(sessionsTable.userId, tokenRecord.userId));
-    });
-
-    return { success: true };
   }
 
   public async logout(token: string) {
@@ -552,7 +616,10 @@ class UserService {
     return { success: true };
   }
 
-  public async getCurrentUser(token: string) {
+  public async getCurrentUser(
+    token: string,
+    context?: { ipAddress?: string; userAgent?: string }
+  ) {
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
     const [sessionWithUser] = await db
@@ -574,6 +641,23 @@ class UserService {
 
     if (!sessionWithUser) {
       return null;
+    }
+
+    // Advanced Protection: User-Agent Pinning (Mitigates Session Hijacking / Cookie Theft)
+    if (context?.userAgent && sessionWithUser.session.userAgent) {
+      if (context.userAgent !== sessionWithUser.session.userAgent) {
+        // Drastic User-Agent change detected. Log warning and revoke session instantly!
+        console.warn(
+          `Security Alert: Session hijack attempt detected for user ${sessionWithUser.user.id}. ` +
+          `Original User-Agent: "${sessionWithUser.session.userAgent}", ` +
+          `Incoming User-Agent: "${context.userAgent}". Revoking session.`
+        );
+        await db
+          .delete(sessionsTable)
+          .where(eq(sessionsTable.id, sessionWithUser.session.id))
+          .catch((err) => console.error("Failed to revoke hijacked session:", err));
+        return null;
+      }
     }
 
     // Update lastActiveAt periodically if it has been > 5 mins and renew rolling session if necessary

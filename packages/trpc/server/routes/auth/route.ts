@@ -340,7 +340,13 @@ export const authRouter = router({
         return null;
       }
 
-      const result = await userService.getCurrentUser(sessionToken);
+      const userAgent = ctx.req?.headers["user-agent"] || undefined;
+      const ipAddress = parseIpAddress(ctx.req) || undefined;
+
+      const result = await userService.getCurrentUser(sessionToken, {
+        ipAddress,
+        userAgent,
+      });
       if (!result) {
         // Clear invalid/expired cookie
         if (ctx.res) {

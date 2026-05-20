@@ -153,6 +153,16 @@ describe("UserService Authentication Tests", () => {
         })
       ).rejects.toThrow("Password must contain at least one special character");
     });
+
+    it("should reject commonly compromised passwords listed in our security blacklist", async () => {
+      await expect(
+        userService.createUserWithEmailAndPassword({
+          name: "Alice Smith",
+          email: "alice@example.com",
+          password: "Password123!",
+        })
+      ).rejects.toThrow("This password is listed in databases of commonly compromised passwords");
+    });
   });
 
   describe("User Registration", () => {
@@ -632,6 +642,69 @@ describe("UserService Authentication Tests", () => {
       const result = await userService.logout("active-token");
       expect(result.success).toBe(true);
       expect(db.delete).toHaveBeenCalled();
+    });
+
+    it("should successfully retrieve the current user for a valid unexpired session", async () => {
+      const mockSession = {
+        id: "session-id",
+        userId: "user-id",
+        tokenHash: "token-hash",
+        userAgent: "Mozilla/5.0",
+        expiresAt: new Date(Date.now() + 3600000),
+        lastActiveAt: new Date(),
+      };
+
+      const mockUser = {
+        id: "user-id",
+        name: "Test User",
+        email: "test@example.com",
+        role: "user",
+      };
+
+      // Mock innerJoin select structure
+      selectChain.limit.mockResolvedValueOnce([{
+        session: mockSession,
+        user: mockUser,
+      }]);
+
+      const result = await userService.getCurrentUser("valid-token", {
+        userAgent: "Mozilla/5.0",
+      });
+
+      expect(result).not.toBeNull();
+      expect(result?.user.id).toBe("user-id");
+    });
+
+    it("should revoke the session and return null if User-Agent mismatch is detected (Session Hijack Prevention)", async () => {
+      const mockSession = {
+        id: "session-id",
+        userId: "user-id",
+        tokenHash: "token-hash",
+        userAgent: "Mozilla/5.0 (Windows NT)",
+        expiresAt: new Date(Date.now() + 3600000),
+        lastActiveAt: new Date(),
+      };
+
+      const mockUser = {
+        id: "user-id",
+        name: "Test User",
+        email: "test@example.com",
+        role: "user",
+      };
+
+      // Mock innerJoin select
+      selectChain.limit.mockResolvedValueOnce([{
+        session: mockSession,
+        user: mockUser,
+      }]);
+
+      // Execute: incoming User-Agent is Safari on iPhone, differing from original Windows PC UA
+      const result = await userService.getCurrentUser("valid-token", {
+        userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS)",
+      });
+
+      expect(result).toBeNull();
+      expect(db.delete).toHaveBeenCalled(); // Session should be deleted for hijacking protection
     });
   });
 });
