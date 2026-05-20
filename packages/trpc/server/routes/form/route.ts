@@ -53,7 +53,11 @@ import {
   archiveFormInputModel,
   archiveFormOutputModel,
   unarchiveFormInputModel,
-  unarchiveFormOutputModel
+  unarchiveFormOutputModel,
+  listFormTemplatesInputModel,
+  listFormTemplatesOutputModel,
+  createFormFromTemplateInputModel,
+  createFormFromTemplateOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -1221,6 +1225,85 @@ export const formRouter = router({
       throw new TRPCError({
         code: errorCode,
         message: error.message || "Failed to unarchive form",
+      });
+    }
+  }),
+
+  listFormTemplates: publicProcedure.meta({
+    openapi: {
+      method: "GET",
+      path: getPath("/templates"),
+      tags: TAGS,
+    }
+  })
+  .input(listFormTemplatesInputModel)
+  .output(listFormTemplatesOutputModel)
+  .query(async () => {
+    try {
+      return formService.listFormTemplates();
+    } catch (error: any) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: error.message || "Failed to list templates",
+      });
+    }
+  }),
+
+  createFormFromTemplate: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/templates/clone"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(createFormFromTemplateInputModel)
+  .output(createFormFromTemplateOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to create a form from a template",
+        });
+      }
+
+      const form = await formService.createFormFromTemplate(sessionToken, input);
+      return {
+        success: true,
+        form: {
+          id: form.id,
+          userId: form.userId,
+          title: form.title,
+          slug: form.slug,
+          isPublished: form.isPublished,
+          visibility: form.visibility,
+          theme: form.theme,
+          expiresAt: form.expiresAt,
+          maxResponses: form.maxResponses,
+          isArchived: form.isArchived,
+          createdAt: form.createdAt,
+          updatedAt: form.updatedAt,
+        }
+      };
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+
+      const isSessionError = error.message === "Invalid or expired session";
+      const isNotFoundError = error.message === "Template not found";
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to create form from template",
       });
     }
   }),

@@ -317,4 +317,47 @@ describe("FormService - Form Lifecycle (Unit)", () => {
       ).rejects.toThrow("Form not found");
     });
   });
+
+  describe("listFormTemplates", () => {
+    it("should return the list of form templates", () => {
+      const result = formService.listFormTemplates();
+      expect(result).toBeInstanceOf(Array);
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0]).toHaveProperty("id");
+      expect(result[0]).toHaveProperty("fields");
+    });
+  });
+
+  describe("createFormFromTemplate", () => {
+    it("should successfully clone template and its fields inside a transaction", async () => {
+      selectChain.then
+        .mockImplementationOnce((onfulfilled: any) => Promise.resolve([mockSessionUser]).then(onfulfilled))
+        .mockImplementationOnce((onfulfilled: any) => Promise.resolve([]).then(onfulfilled));
+
+      const clonedFormResult = {
+        ...mockForm,
+        id: "cloned-form-id",
+        title: "Customer Satisfaction Survey",
+        slug: "customer-feedback-copy-xyz",
+      };
+      insertChain.then.mockImplementationOnce((onfulfilled: any) =>
+        Promise.resolve([clonedFormResult]).then(onfulfilled)
+      );
+
+      const result = await formService.createFormFromTemplate(mockToken, { templateId: "customer-feedback" });
+
+      expect(result.id).toBe("cloned-form-id");
+      expect(result.title).toBe("Customer Satisfaction Survey");
+      expect(db.transaction).toHaveBeenCalled();
+    });
+
+    it("should throw error if template is not found", async () => {
+      selectChain.then
+        .mockImplementationOnce((onfulfilled: any) => Promise.resolve([mockSessionUser]).then(onfulfilled));
+
+      await expect(
+        formService.createFormFromTemplate(mockToken, { templateId: "invalid-template" })
+      ).rejects.toThrow("Template not found");
+    });
+  });
 });

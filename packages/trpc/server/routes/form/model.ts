@@ -563,6 +563,58 @@ export const unarchiveFormOutputModel = z.object({
   })
 });
 
+export const listFormTemplatesInputModel = z.void();
+
+export const listFormTemplatesOutputModel = z.array(
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string(),
+    theme: z.string(),
+    fields: z.array(
+      z.object({
+        label: z.string(),
+        type: z.enum([
+          "short_text",
+          "long_text",
+          "email",
+          "number",
+          "single_select",
+          "multi_select",
+          "checkbox",
+          "rating",
+          "date",
+        ]),
+        required: z.boolean(),
+        validation: z.record(z.string(), z.unknown()).nullable().optional(),
+      })
+    ),
+  })
+);
+
+export const createFormFromTemplateInputModel = z.object({
+  templateId: z.string(),
+});
+
+export const createFormFromTemplateOutputModel = z.object({
+  success: z.boolean(),
+  form: z.object({
+    id: z.string(),
+    userId: z.string(),
+    title: z.string(),
+    slug: z.string(),
+    isPublished: z.boolean(),
+    visibility: z.enum(["public", "unlisted"]),
+    theme: z.string(),
+    expiresAt: z.date().nullable(),
+    maxResponses: z.number().nullable(),
+    isArchived: z.boolean(),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+  })
+});
+
+
 
 
 

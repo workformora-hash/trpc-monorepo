@@ -1688,6 +1688,165 @@ class FormService {
 
     return unarchivedForm;
   }
+
+  public listFormTemplates() {
+    return FORM_TEMPLATES;
+  }
+
+  public async createFormFromTemplate(token: string, payload: { templateId: string }) {
+    const userId = await this.getUserIdFromToken(token);
+    const template = FORM_TEMPLATES.find((t) => t.id === payload.templateId);
+
+    if (!template) {
+      throw new Error("Template not found");
+    }
+
+    // 1. Generate unique slug for cloned form
+    let duplicateSlug = "";
+    let isUnique = false;
+    let attempts = 0;
+    while (!isUnique && attempts < 5) {
+      const randomSuffix = crypto.randomBytes(3).toString("hex");
+      const candidateSlug = `${template.id}-copy-${randomSuffix}`;
+
+      const [slugOwner] = await db
+        .select()
+        .from(formsTable)
+        .where(eq(formsTable.slug, candidateSlug))
+        .limit(1);
+
+      if (!slugOwner) {
+        duplicateSlug = candidateSlug;
+        isUnique = true;
+      }
+      attempts++;
+    }
+
+    if (!duplicateSlug) {
+      duplicateSlug = `${template.id}-copy-${crypto.randomUUID()}`;
+    }
+
+    // 2. Perform insertion inside a transaction to ensure atomicity
+    const clonedForm = await db.transaction(async (tx) => {
+      // 2a. Insert new form
+      const [newForm] = await tx
+        .insert(formsTable)
+        .values({
+          userId,
+          title: template.name,
+          description: template.description,
+          slug: duplicateSlug,
+          isPublished: false, // Start unpublished
+          visibility: "unlisted",
+          theme: template.theme,
+        })
+        .returning();
+
+      if (!newForm) {
+        throw new Error("Failed to insert form from template");
+      }
+
+      // 2b. Add template fields to the new form ID
+      if (template.fields.length > 0) {
+        await tx.insert(formFieldsTable).values(
+          template.fields.map((field, index) => ({
+            formId: newForm.id,
+            label: field.label,
+            type: field.type,
+            required: field.required,
+            orderIndex: index,
+            validation: field.validation || null,
+          }))
+        );
+      }
+
+      return newForm;
+    });
+
+    return clonedForm;
+  }
 }
 
+export interface TemplateField {
+  label: string;
+  type: "short_text" | "long_text" | "email" | "number" | "single_select" | "multi_select" | "checkbox" | "rating" | "date";
+  required: boolean;
+  validation?: Record<string, any> | null;
+}
+
+export interface FormTemplate {
+  id: string;
+  name: string;
+  description: string;
+  theme: string;
+  fields: TemplateField[];
+}
+
+export const FORM_TEMPLATES: FormTemplate[] = [
+  {
+    id: "customer-feedback",
+    name: "Customer Satisfaction Survey",
+    description: "Gather feedback from your users to improve your product or service.",
+    theme: "default",
+    fields: [
+      { label: "What is your full name?", type: "short_text", required: true },
+      { label: "What is your email address?", type: "email", required: true },
+      {
+        label: "How would you rate your overall experience?",
+        type: "rating",
+        required: true,
+        validation: { max: 5 },
+      },
+      {
+        label: "Which area needs the most improvement?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Product Speed", "Customer Support", "User Interface", "Pricing", "Other"] },
+      },
+      { label: "Please share any additional comments or suggestions.", type: "long_text", required: false },
+    ],
+  },
+  {
+    id: "event-registration",
+    name: "Event Registration & RSVP",
+    description: "Collect sign-ups and dietary preferences for your next event or meetup.",
+    theme: "neon",
+    fields: [
+      { label: "Attendee Name", type: "short_text", required: true },
+      { label: "Contact Email", type: "email", required: true },
+      {
+        label: "Will you be attending in person or virtually?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["In-Person", "Virtual"] },
+      },
+      {
+        label: "Any dietary restrictions or requirements?",
+        type: "multi_select",
+        required: false,
+        validation: { options: ["Vegetarian", "Vegan", "Gluten-Free", "Nut-Free", "Halal", "Kosher"] },
+      },
+      { label: "How many guests will you be bringing?", type: "number", required: false, validation: { min: 0, max: 5 } },
+    ],
+  },
+  {
+    id: "product-market-fit",
+    name: "Product Market Fit (PMF) Survey",
+    description: "Measure the PMF score of your startup using the standard Sean Ellis question template.",
+    theme: "modern",
+    fields: [
+      {
+        label: "How would you feel if you could no longer use this product?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Very disappointed", "Somewhat disappointed", "Not disappointed", "I no longer use it"] },
+      },
+      { label: "What is the primary benefit you receive from using our product?", type: "long_text", required: true },
+      { label: "What type of person do you think would benefit most from our product?", type: "long_text", required: false },
+      { label: "How can we improve this product for you?", type: "long_text", required: false },
+    ],
+  },
+];
+
 export default FormService;
+
