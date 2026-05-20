@@ -12,7 +12,9 @@ import {
   getFormByIdCreatorInputModel,
   getFormByIdCreatorOutputModel,
   listFormsCreatorInputModel,
-  listFormsCreatorOutputModel
+  listFormsCreatorOutputModel,
+  deleteFormInputModel,
+  deleteFormOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -238,6 +240,59 @@ export const formRouter = router({
       throw new TRPCError({
         code: isSessionError ? "UNAUTHORIZED" : "BAD_REQUEST",
         message: error.message || "Failed to list forms",
+      });
+    }
+  }),
+
+  deleteForm: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/delete"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(deleteFormInputModel)
+  .output(deleteFormOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to delete a form",
+        });
+      }
+
+      const form = await formService.deleteForm(sessionToken, input);
+
+      return {
+        success: true,
+        form: {
+          id: form.id,
+          userId: form.userId,
+          title: form.title,
+          deletedAt: form.deletedAt,
+        }
+      };
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to delete this form";
+      const isNotFoundError = error.message === "Form not found";
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to delete form",
       });
     }
   }),

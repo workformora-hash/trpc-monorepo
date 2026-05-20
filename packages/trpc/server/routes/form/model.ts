@@ -177,4 +177,19 @@ export const listFormsCreatorOutputModel = z.object({
   )
 });
 
+export const deleteFormInputModel = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export const deleteFormOutputModel = z.object({
+  success: z.boolean(),
+  form: z.object({
+    id: z.string(),
+    userId: z.string(),
+    title: z.string(),
+    deletedAt: z.date().nullable(),
+  })
+});
+
+
 

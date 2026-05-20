@@ -84,4 +84,11 @@ export const getFormByIdCreatorInput = z.object({
 export type GetFormBySlugPublicInputType = z.infer<typeof getFormBySlugPublicInput>;
 export type GetFormByIdCreatorInputType = z.infer<typeof getFormByIdCreatorInput>;
 
+export const deleteFormInput = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export type DeleteFormInputType = z.infer<typeof deleteFormInput>;
+
+
 

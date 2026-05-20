@@ -4,8 +4,8 @@ import { sessionsTable } from "@repo/database/models/sessions";
 import { usersTable } from "@repo/database/models/user";
 import { formFieldsTable } from "@repo/database/models/form-field";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType } from "./model";
 
 class FormService {
   private async getUserIdFromToken(token: string): Promise<string> {
@@ -329,6 +329,47 @@ class FormService {
     return {
       forms,
     };
+  }
+
+  public async deleteForm(token: string, payload: DeleteFormInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await deleteFormInput.parseAsync(payload);
+
+    // 1. Fetch form first to ensure it exists and belongs to this user
+    const [existingForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.id),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!existingForm) {
+      throw new Error("Form not found");
+    }
+
+    if (existingForm.userId !== userId) {
+      throw new Error("You are not authorized to delete this form");
+    }
+
+    // 2. Perform soft-deletion by setting deletedAt
+    const [deletedForm] = await db
+      .update(formsTable)
+      .set({
+        deletedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(formsTable.id, existingForm.id))
+      .returning();
+
+    if (!deletedForm) {
+      throw new Error("Failed to delete form");
+    }
+
+    return deletedForm;
   }
 }
 
