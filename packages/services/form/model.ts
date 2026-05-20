@@ -202,6 +202,14 @@ export const deleteResponseInput = z.object({
 
 export type DeleteResponseInputType = z.infer<typeof deleteResponseInput>;
 
+export const listPublicFormsInput = z.object({
+  limit: z.number().int().min(1).max(100).optional().default(50),
+  offset: z.number().int().min(0).optional().default(0),
+});
+
+export type ListPublicFormsInputType = z.infer<typeof listPublicFormsInput>;
+
+
 
 
 

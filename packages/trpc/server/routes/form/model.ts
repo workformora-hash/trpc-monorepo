@@ -410,6 +410,29 @@ export const deleteResponseOutputModel = z.object({
   responseId: z.string(),
 });
 
+export const listPublicFormsInputModel = z.object({
+  limit: z.number().int().min(1).max(100).optional().default(50),
+  offset: z.number().int().min(0).optional().default(0),
+});
+
+export const listPublicFormsOutputModel = z.object({
+  forms: z.array(
+    z.object({
+      id: z.string(),
+      userId: z.string(),
+      title: z.string(),
+      description: z.string().nullable(),
+      slug: z.string(),
+      isPublished: z.boolean(),
+      visibility: z.string(),
+      theme: z.string(),
+      createdAt: z.date(),
+      updatedAt: z.date(),
+    })
+  ),
+});
+
+
 
 
 

@@ -41,7 +41,9 @@ import {
   getFormAnalyticsInputModel,
   getFormAnalyticsOutputModel,
   deleteResponseInputModel,
-  deleteResponseOutputModel
+  deleteResponseOutputModel,
+  listPublicFormsInputModel,
+  listPublicFormsOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -912,6 +914,27 @@ export const formRouter = router({
       throw new TRPCError({
         code: errorCode,
         message: error.message || "Failed to delete response",
+      });
+    }
+  }),
+
+  listPublicForms: publicProcedure.meta({
+    openapi: {
+      method: "GET",
+      path: getPath("/public/list"),
+      tags: TAGS,
+    }
+  })
+  .input(listPublicFormsInputModel)
+  .output(listPublicFormsOutputModel)
+  .query(async ({ input }) => {
+    try {
+      const result = await formService.listPublicForms(input);
+      return result;
+    } catch (error: any) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: error.message || "Failed to list public forms",
       });
     }
   }),
