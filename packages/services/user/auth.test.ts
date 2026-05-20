@@ -403,10 +403,10 @@ describe("UserService Authentication Tests", () => {
       const result = await userService.getActiveSessions("");
 
       expect(result.sessions).toHaveLength(2);
-      expect(result.sessions[0].id).toBe("active-session-id");
-      expect(result.sessions[0].isCurrent).toBe(true);
-      expect(result.sessions[1].id).toBe("other-session-id");
-      expect(result.sessions[1].isCurrent).toBe(false);
+      expect(result.sessions![0]!.id).toBe("active-session-id");
+      expect(result.sessions![0]!.isCurrent).toBe(true);
+      expect(result.sessions![1]!.id).toBe("other-session-id");
+      expect(result.sessions![1]!.isCurrent).toBe(false);
     });
 
     it("should revoke a session by ID if it belongs to the user", async () => {
