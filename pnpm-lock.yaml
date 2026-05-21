@@ -441,6 +441,9 @@ importers:
 
   packages/trpc:
     dependencies:
+      '@repo/email':
+        specifier: workspace:*
+        version: link:../email
       '@repo/services':
         specifier: workspace:*
         version: link:../services

@@ -1704,7 +1704,6 @@ export const formRouter = router({
 
   onNewResponse: publicProcedure
     .input(onNewResponseInputModel)
-    .output(onNewResponseOutputModel)
     .subscription(({ input }) => {
       return observable<{
         formId: string;

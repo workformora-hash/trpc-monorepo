@@ -45,6 +45,9 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async headers() {
+    if (process.env.NODE_ENV === 'development') {
+      return [];
+    }
     return [
       {
         source: '/:path*',

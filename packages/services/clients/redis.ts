@@ -99,11 +99,10 @@ class RedisClient {
       multi.expire(redisKey, windowSeconds);
 
       const results = await multi.exec();
-      if (!results) return defaultResponse;
-
-      // results structure: [[err, res], [err, res], ...]
-      // results[1][1] contains the count before this request was added
-      const currentCount = results[1][1] as number;
+      if (!results || !results[1]) return defaultResponse;
+      const countPair = results[1];
+      if (!countPair || countPair[1] === undefined || countPair[1] === null) return defaultResponse;
+      const currentCount = countPair[1] as number;
 
       if (currentCount >= limit) {
         // Over limit, delete the newly added score to keep ZSET accurate
