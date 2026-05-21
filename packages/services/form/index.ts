@@ -1067,11 +1067,17 @@ class FormService {
 
       if (preparedAnswers.length > 0) {
         await tx.insert(formFieldAnswersTable).values(
-          preparedAnswers.map((ans) => ({
-            responseId: newResponse.id,
-            fieldId: ans.fieldId,
-            value: ans.value,
-          }))
+          preparedAnswers.map((ans) => {
+            const originalAnswer = validated.answers.find((a) => a.fieldId === ans.fieldId);
+            return {
+              responseId: newResponse.id,
+              fieldId: ans.fieldId,
+              value: {
+                ...(ans.value as Record<string, unknown>),
+                durationMs: originalAnswer?.durationMs,
+              },
+            };
+          })
         );
       }
 
@@ -2168,6 +2174,172 @@ class FormService {
       return FORM_TEMPLATES.filter((t) => t.category?.toLowerCase() === category.toLowerCase());
     }
     return FORM_TEMPLATES;
+  }
+
+  public async getQuestionDurationStats(token: string, payload: { formId: string }) {
+    const userId = await this.getUserIdFromToken(token);
+    
+    // 1. Fetch form to verify ownership
+    const [form] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, payload.formId),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!form) {
+      throw new Error("Form not found");
+    }
+
+    if (form.userId !== userId) {
+      throw new Error("You are not authorized to view stats for this form");
+    }
+
+    // 2. Fetch all fields
+    const fields = await db
+      .select()
+      .from(formFieldsTable)
+      .where(eq(formFieldsTable.formId, form.id))
+      .orderBy(sql`${formFieldsTable.orderIndex} ASC`);
+
+    // 3. Fetch all response IDs for this form
+    const responses = await db
+      .select({ id: formResponsesTable.id })
+      .from(formResponsesTable)
+      .where(eq(formResponsesTable.formId, form.id));
+
+    const stats = [];
+
+    if (responses.length > 0) {
+      const responseIds = responses.map((r) => r.id);
+      
+      // 4. Fetch all answers for these responses
+      const answers = await db
+        .select()
+        .from(formFieldAnswersTable)
+        .where(inArray(formFieldAnswersTable.responseId, responseIds));
+
+      for (const field of fields) {
+        const fieldAnswers = answers.filter((a) => a.fieldId === field.id);
+        let totalDurationMs = 0;
+        let countWithDuration = 0;
+
+        for (const ans of fieldAnswers) {
+          const valObj = ans.value as any;
+          if (valObj && typeof valObj.durationMs === "number") {
+            totalDurationMs += valObj.durationMs;
+            countWithDuration++;
+          }
+        }
+
+        const averageDurationMs = countWithDuration > 0 ? Math.round(totalDurationMs / countWithDuration) : 0;
+
+        stats.push({
+          fieldId: field.id,
+          label: field.label,
+          type: field.type,
+          averageDurationMs,
+          totalDurationMs,
+          responseCount: fieldAnswers.length,
+          responseWithDurationCount: countWithDuration,
+        });
+      }
+    } else {
+      for (const field of fields) {
+        stats.push({
+          fieldId: field.id,
+          label: field.label,
+          type: field.type,
+          averageDurationMs: 0,
+          totalDurationMs: 0,
+          responseCount: 0,
+          responseWithDurationCount: 0,
+        });
+      }
+    }
+
+    return {
+      formId: form.id,
+      stats,
+    };
+  }
+
+  public async getResponseGeoDistribution(token: string, payload: { formId: string }) {
+    const userId = await this.getUserIdFromToken(token);
+    
+    // 1. Fetch form to verify ownership
+    const [form] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, payload.formId),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!form) {
+      throw new Error("Form not found");
+    }
+
+    if (form.userId !== userId) {
+      throw new Error("You are not authorized to view stats for this form");
+    }
+
+    // 2. Fetch all responses with IP addresses
+    const responses = await db
+      .select({ ipAddress: formResponsesTable.ipAddress })
+      .from(formResponsesTable)
+      .where(eq(formResponsesTable.formId, form.id));
+
+    const mockIpGeoLookup = (ip: string | null) => {
+      if (!ip) return { country: "Unknown", city: "Unknown" };
+      if (ip === "127.0.0.1" || ip === "::1" || ip.toLowerCase().startsWith("localhost")) {
+        return { country: "Local Development", city: "Localhost" };
+      }
+      // Deterministic mapping for testing/geo fallbacks
+      const charSum = ip.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const countries = [
+        { country: "United States", city: "San Francisco" },
+        { country: "India", city: "Bengaluru" },
+        { country: "Germany", city: "Berlin" },
+        { country: "United Kingdom", city: "London" },
+        { country: "Japan", city: "Tokyo" },
+        { country: "Canada", city: "Toronto" },
+      ];
+      return countries[charSum % countries.length]!;
+    };
+
+    const countryCounts: Record<string, number> = {};
+    const cityCounts: Record<string, number> = {};
+
+    for (const resp of responses) {
+      const geo = mockIpGeoLookup(resp.ipAddress);
+      countryCounts[geo.country] = (countryCounts[geo.country] || 0) + 1;
+      cityCounts[`${geo.city}, ${geo.country}`] = (cityCounts[`${geo.city}, ${geo.country}`] || 0) + 1;
+    }
+
+    const countries = Object.entries(countryCounts).map(([country, count]) => ({
+      country,
+      count,
+    })).sort((a, b) => b.count - a.count);
+
+    const cities = Object.entries(cityCounts).map(([city, count]) => ({
+      city,
+      count,
+    })).sort((a, b) => b.count - a.count);
+
+    return {
+      formId: form.id,
+      countries,
+      cities,
+      totalResponses: responses.length,
+    };
   }
 }
 

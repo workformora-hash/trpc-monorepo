@@ -203,6 +203,7 @@ export const submitResponseInput = z.object({
     z.object({
       fieldId: z.string().uuid("Invalid field ID format"),
       value: z.unknown(),
+      durationMs: z.number().int().nonnegative().optional(),
     })
   ),
 });

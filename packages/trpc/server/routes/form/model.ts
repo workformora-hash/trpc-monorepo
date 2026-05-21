@@ -781,6 +781,46 @@ export const listTemplatesByCategoryOutputModel = z.array(
   })
 );
 
+export const getQuestionDurationStatsInputModel = z.object({
+  formId: z.string().uuid("Invalid form ID format"),
+});
+
+export const getQuestionDurationStatsOutputModel = z.object({
+  formId: z.string(),
+  stats: z.array(
+    z.object({
+      fieldId: z.string(),
+      label: z.string(),
+      type: z.string(),
+      averageDurationMs: z.number(),
+      totalDurationMs: z.number(),
+      responseCount: z.number(),
+      responseWithDurationCount: z.number(),
+    })
+  ),
+});
+
+export const getResponseGeoDistributionInputModel = z.object({
+  formId: z.string().uuid("Invalid form ID format"),
+});
+
+export const getResponseGeoDistributionOutputModel = z.object({
+  formId: z.string(),
+  countries: z.array(
+    z.object({
+      country: z.string(),
+      count: z.number(),
+    })
+  ),
+  cities: z.array(
+    z.object({
+      city: z.string(),
+      count: z.number(),
+    })
+  ),
+  totalResponses: z.number(),
+});
+
 
 
 

@@ -75,7 +75,11 @@ import {
   listExploreFormsInputModel,
   listExploreFormsOutputModel,
   listTemplatesByCategoryInputModel,
-  listTemplatesByCategoryOutputModel
+  listTemplatesByCategoryOutputModel,
+  getQuestionDurationStatsInputModel,
+  getQuestionDurationStatsOutputModel,
+  getResponseGeoDistributionInputModel,
+  getResponseGeoDistributionOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -1604,6 +1608,84 @@ export const formRouter = router({
       throw new TRPCError({
         code: "BAD_REQUEST",
         message: error.message || "Failed to filter templates",
+      });
+    }
+  }),
+
+  getQuestionDurationStats: publicProcedure.meta({
+    openapi: {
+      method: "GET",
+      path: getPath("/analytics/duration"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(getQuestionDurationStatsInputModel)
+  .output(getQuestionDurationStatsOutputModel)
+  .query(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to view analytics",
+        });
+      }
+      return await formService.getQuestionDurationStats(sessionToken, input);
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to view stats for this form";
+      const isNotFoundError = error.message === "Form not found";
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to fetch question duration stats",
+      });
+    }
+  }),
+
+  getResponseGeoDistribution: publicProcedure.meta({
+    openapi: {
+      method: "GET",
+      path: getPath("/analytics/geo"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(getResponseGeoDistributionInputModel)
+  .output(getResponseGeoDistributionOutputModel)
+  .query(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to view analytics",
+        });
+      }
+      return await formService.getResponseGeoDistribution(sessionToken, input);
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to view stats for this form";
+      const isNotFoundError = error.message === "Form not found";
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to fetch geographic distribution stats",
       });
     }
   }),
