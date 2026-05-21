@@ -8,8 +8,8 @@ import { formFieldAnswersTable } from "@repo/database/models/form-field-answer";
 import { SYSTEM_THEMES } from "./themes";
 import { formEvents } from "./events";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput, exportResponsesToCSVInput, getResponseByIdInput, restoreDeletedFormInput, archiveFormInput, unarchiveFormInput, setFormPasswordInput, removeFormPasswordInput, verifyFormPasswordInput, addFieldLogicRuleInput, editFieldLogicRuleInput, deleteFieldLogicRuleInput, getFormLogicTreeInput, listExploreFormsInput, listTemplatesByCategoryInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType, ExportResponsesToCSVInputType, GetResponseByIdInputType, RestoreDeletedFormInputType, ArchiveFormInputType, UnarchiveFormInputType, SetFormPasswordInputType, RemoveFormPasswordInputType, VerifyFormPasswordInputType, AddFieldLogicRuleInputType, EditFieldLogicRuleInputType, DeleteFieldLogicRuleInputType, GetFormLogicTreeInputType, ListExploreFormsInputType, ListTemplatesByCategoryInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput, exportResponsesToCSVInput, getResponseByIdInput, restoreDeletedFormInput, archiveFormInput, unarchiveFormInput, setFormPasswordInput, removeFormPasswordInput, verifyFormPasswordInput, addFieldLogicRuleInput, editFieldLogicRuleInput, deleteFieldLogicRuleInput, getFormLogicTreeInput, listExploreFormsInput, listTemplatesByCategoryInput, trackFormViewInput, duplicateFormFieldInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType, ExportResponsesToCSVInputType, GetResponseByIdInputType, RestoreDeletedFormInputType, ArchiveFormInputType, UnarchiveFormInputType, SetFormPasswordInputType, RemoveFormPasswordInputType, VerifyFormPasswordInputType, AddFieldLogicRuleInputType, EditFieldLogicRuleInputType, DeleteFieldLogicRuleInputType, GetFormLogicTreeInputType, ListExploreFormsInputType, ListTemplatesByCategoryInputType, TrackFormViewInputType, DuplicateFormFieldInputType } from "./model";
 import type { EmailService } from "@repo/email";
 import bcrypt from "bcryptjs";
 
@@ -2349,6 +2349,107 @@ class FormService {
       cities,
       totalResponses: responses.length,
     };
+  }
+
+  public async trackFormView(payload: TrackFormViewInputType) {
+    const validated = await trackFormViewInput.parseAsync(payload);
+
+    // 1. Fetch form to ensure it exists and is not deleted
+    const [form] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.slug, validated.slug),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!form) {
+      throw new Error("Form not found");
+    }
+
+    // 2. Increment view count
+    await db
+      .update(formsTable)
+      .set({ views: sql`${formsTable.views} + 1` })
+      .where(eq(formsTable.id, form.id));
+
+    return {
+      success: true,
+      formId: form.id,
+      views: form.views + 1,
+    };
+  }
+
+  public async duplicateFormField(token: string, payload: DuplicateFormFieldInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await duplicateFormFieldInput.parseAsync(payload);
+
+    // 1. Fetch original field
+    const [originalField] = await db
+      .select()
+      .from(formFieldsTable)
+      .where(eq(formFieldsTable.id, validated.fieldId))
+      .limit(1);
+
+    if (!originalField) {
+      throw new Error("Field not found");
+    }
+
+    // 2. Fetch parent form and verify creator ownership
+    const [form] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, originalField.formId),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!form) {
+      throw new Error("Form not found");
+    }
+
+    if (form.userId !== userId) {
+      throw new Error("You are not authorized to duplicate fields on this form");
+    }
+
+    // 3. Atomically increment subsequent order indexes and insert duplicated field
+    const newField = await db.transaction(async (tx) => {
+      await tx
+        .update(formFieldsTable)
+        .set({ orderIndex: sql`${formFieldsTable.orderIndex} + 1` })
+        .where(
+          and(
+            eq(formFieldsTable.formId, form.id),
+            gt(formFieldsTable.orderIndex, originalField.orderIndex)
+          )
+        );
+
+      const [inserted] = await tx
+        .insert(formFieldsTable)
+        .values({
+          formId: form.id,
+          label: `${originalField.label} (Copy)`,
+          type: originalField.type,
+          required: originalField.required,
+          orderIndex: originalField.orderIndex + 1,
+          validation: originalField.validation,
+        })
+        .returning();
+
+      return inserted;
+    });
+
+    if (!newField) {
+      throw new Error("Failed to duplicate form field");
+    }
+
+    return newField;
   }
 }
 

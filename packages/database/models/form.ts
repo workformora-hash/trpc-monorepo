@@ -46,6 +46,8 @@ export const formsTable = pgTable(
 
     passwordHash: varchar("password_hash", { length: 256 }),
 
+    views: integer("views").notNull().default(0),
+
     ...timestamps,
     ...softDelete,
   },

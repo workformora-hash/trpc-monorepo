@@ -17,6 +17,7 @@ describe("FormService - Real-Time Response Subscriptions (Unit)", () => {
     userId: mockUserId,
     title: "Real-Time Form",
     slug: "real-time-form",
+    isPublished: true,
   });
 
   beforeEach(() => {

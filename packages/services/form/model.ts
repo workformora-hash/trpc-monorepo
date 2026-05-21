@@ -335,3 +335,15 @@ export const listTemplatesByCategoryInput = z.object({
 });
 
 export type ListTemplatesByCategoryInputType = z.infer<typeof listTemplatesByCategoryInput>;
+
+export const trackFormViewInput = z.object({
+  slug: z.string().min(1, "Slug is required"),
+});
+
+export type TrackFormViewInputType = z.infer<typeof trackFormViewInput>;
+
+export const duplicateFormFieldInput = z.object({
+  fieldId: z.string().uuid("Invalid field ID format"),
+});
+
+export type DuplicateFormFieldInputType = z.infer<typeof duplicateFormFieldInput>;

@@ -833,6 +833,22 @@ export const onNewResponseOutputModel = z.object({
   submittedAt: z.date(),
 });
 
+export const trackFormViewInputModel = z.object({
+  slug: z.string().min(1, "Slug is required"),
+});
+
+export const trackFormViewOutputModel = z.object({
+  success: z.boolean(),
+  formId: z.string(),
+  views: z.number(),
+});
+
+export const duplicateFormFieldInputModel = z.object({
+  fieldId: z.string().uuid("Invalid field ID format"),
+});
+
+export const duplicateFormFieldOutputModel = formFieldModel;
+
 
 
 

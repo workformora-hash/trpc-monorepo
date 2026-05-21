@@ -82,7 +82,11 @@ import {
   getResponseGeoDistributionInputModel,
   getResponseGeoDistributionOutputModel,
   onNewResponseInputModel,
-  onNewResponseOutputModel
+  onNewResponseOutputModel,
+  trackFormViewInputModel,
+  trackFormViewOutputModel,
+  duplicateFormFieldInputModel,
+  duplicateFormFieldOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -1723,4 +1727,63 @@ export const formRouter = router({
         };
       });
     }),
+
+  trackFormView: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/public/view"),
+      tags: TAGS,
+    }
+  })
+  .input(trackFormViewInputModel)
+  .output(trackFormViewOutputModel)
+  .mutation(async ({ input }) => {
+    try {
+      return await formService.trackFormView(input);
+    } catch (error: any) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: error.message || "Failed to track form view",
+      });
+    }
+  }),
+
+  duplicateFormField: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/fields/duplicate"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(duplicateFormFieldInputModel)
+  .output(duplicateFormFieldOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to duplicate form fields",
+        });
+      }
+      return await formService.duplicateFormField(sessionToken, input);
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to duplicate fields on this form";
+      const isNotFoundError = error.message === "Field not found" || error.message === "Form not found";
+
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to duplicate form field",
+      });
+    }
+  }),
 });
