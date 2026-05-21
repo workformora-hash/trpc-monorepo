@@ -7,9 +7,10 @@ import { formResponsesTable } from "@repo/database/models/form-response";
 import { formFieldAnswersTable } from "@repo/database/models/form-field-answer";
 import { SYSTEM_THEMES } from "./themes";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput, exportResponsesToCSVInput, getResponseByIdInput, restoreDeletedFormInput, archiveFormInput, unarchiveFormInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType, ExportResponsesToCSVInputType, GetResponseByIdInputType, RestoreDeletedFormInputType, ArchiveFormInputType, UnarchiveFormInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput, exportResponsesToCSVInput, getResponseByIdInput, restoreDeletedFormInput, archiveFormInput, unarchiveFormInput, setFormPasswordInput, removeFormPasswordInput, verifyFormPasswordInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType, ExportResponsesToCSVInputType, GetResponseByIdInputType, RestoreDeletedFormInputType, ArchiveFormInputType, UnarchiveFormInputType, SetFormPasswordInputType, RemoveFormPasswordInputType, VerifyFormPasswordInputType } from "./model";
 import type { EmailService } from "@repo/email";
+import bcrypt from "bcryptjs";
 
 class FormService {
   private emailService?: EmailService;
@@ -192,6 +193,18 @@ class FormService {
       updateData.notifyRespondent = validated.notifyRespondent;
     }
 
+    // Handle password protection
+    if (validated.password !== undefined) {
+      if (validated.password === null) {
+        // Remove password protection
+        updateData.passwordHash = null;
+      } else {
+        // Set or update password
+        const salt = await bcrypt.genSalt(10);
+        updateData.passwordHash = await bcrypt.hash(validated.password, salt);
+      }
+    }
+
     if (validated.slug !== undefined && validated.slug !== existingForm.slug) {
       if (validated.slug) {
         const normalizedSlug = validated.slug.toLowerCase().trim();
@@ -299,6 +312,16 @@ class FormService {
       throw new Error("This form is not published yet");
     }
 
+    // If form is password-protected, return metadata only (no fields)
+    const isPasswordProtected = !!form.passwordHash;
+    if (isPasswordProtected) {
+      return {
+        form: { ...form, passwordHash: undefined },
+        fields: [], // withhold fields until password is verified
+        isPasswordProtected: true,
+      };
+    }
+
     const fields = await db
       .select()
       .from(formFieldsTable)
@@ -308,6 +331,7 @@ class FormService {
     return {
       form,
       fields,
+      isPasswordProtected: false,
     };
   }
 
@@ -1818,6 +1842,134 @@ class FormService {
     });
 
     return clonedForm;
+  }
+
+  public async setFormPassword(token: string, payload: SetFormPasswordInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await setFormPasswordInput.parseAsync(payload);
+
+    const [existingForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.id),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!existingForm) {
+      throw new Error("Form not found");
+    }
+
+    if (existingForm.userId !== userId) {
+      throw new Error("You are not authorized to update this form");
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(validated.password, salt);
+
+    const [updatedForm] = await db
+      .update(formsTable)
+      .set({
+        passwordHash,
+        updatedAt: new Date(),
+      })
+      .where(eq(formsTable.id, existingForm.id))
+      .returning();
+
+    if (!updatedForm) {
+      throw new Error("Failed to update form");
+    }
+
+    return {
+      success: true,
+      formId: updatedForm.id,
+    };
+  }
+
+  public async removeFormPassword(token: string, payload: RemoveFormPasswordInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await removeFormPasswordInput.parseAsync(payload);
+
+    const [existingForm] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.id, validated.id),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!existingForm) {
+      throw new Error("Form not found");
+    }
+
+    if (existingForm.userId !== userId) {
+      throw new Error("You are not authorized to update this form");
+    }
+
+    const [updatedForm] = await db
+      .update(formsTable)
+      .set({
+        passwordHash: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(formsTable.id, existingForm.id))
+      .returning();
+
+    if (!updatedForm) {
+      throw new Error("Failed to update form");
+    }
+
+    return {
+      success: true,
+      formId: updatedForm.id,
+    };
+  }
+
+  public async verifyFormPassword(payload: VerifyFormPasswordInputType) {
+    const validated = await verifyFormPasswordInput.parseAsync(payload);
+
+    const [form] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.slug, validated.slug),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!form) {
+      throw new Error("Form not found");
+    }
+
+    if (!form.passwordHash) {
+      throw new Error("This form is not password-protected");
+    }
+
+    const isMatch = await bcrypt.compare(validated.password, form.passwordHash);
+    if (!isMatch) {
+      throw new Error("Incorrect password");
+    }
+
+    // Retrieve the form fields now that password is correct
+    const fields = await db
+      .select()
+      .from(formFieldsTable)
+      .where(eq(formFieldsTable.formId, form.id))
+      .orderBy(sql`${formFieldsTable.orderIndex} ASC`);
+
+    return {
+      success: true,
+      form: { ...form, passwordHash: undefined },
+      fields,
+    };
   }
 }
 

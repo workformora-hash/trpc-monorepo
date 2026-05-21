@@ -1,0 +1,1 @@
+ALTER TABLE "forms" ADD COLUMN "password_hash" varchar(256);

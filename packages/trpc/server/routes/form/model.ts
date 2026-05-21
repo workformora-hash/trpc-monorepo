@@ -632,6 +632,50 @@ export const createFormFromTemplateOutputModel = z.object({
   })
 });
 
+export const setFormPasswordInputModel = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+  password: z.string().min(4, "Password must be at least 4 characters").max(128, "Password too long"),
+});
+
+export const setFormPasswordOutputModel = z.object({
+  success: z.boolean(),
+  formId: z.string(),
+});
+
+export const removeFormPasswordInputModel = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
+
+export const removeFormPasswordOutputModel = z.object({
+  success: z.boolean(),
+  formId: z.string(),
+});
+
+export const verifyFormPasswordInputModel = z.object({
+  slug: z.string().min(1, "Slug is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export const verifyFormPasswordOutputModel = z.object({
+  success: z.boolean(),
+  form: z.object({
+    id: z.string(),
+    userId: z.string(),
+    title: z.string(),
+    description: z.string().nullable(),
+    slug: z.string(),
+    isPublished: z.boolean(),
+    visibility: z.string(),
+    theme: z.string(),
+    expiresAt: z.date().nullable(),
+    maxResponses: z.number().nullable(),
+    isArchived: z.boolean(),
+    createdAt: z.date(),
+    updatedAt: z.date(),
+  }),
+  fields: z.array(formFieldModel),
+});
+
 
 
 

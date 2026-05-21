@@ -43,6 +43,13 @@
       "when": 1779291259371,
       "tag": "0005_fantastic_skrulls",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779292214469,
+      "tag": "0006_odd_wasp",
+      "breakpoints": true
     }
   ]
 }

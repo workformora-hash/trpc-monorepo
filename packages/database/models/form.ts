@@ -44,6 +44,8 @@ export const formsTable = pgTable(
     notifyCreator: boolean("notify_creator").notNull().default(false),
     notifyRespondent: boolean("notify_respondent").notNull().default(false),
 
+    passwordHash: varchar("password_hash", { length: 256 }),
+
     ...timestamps,
     ...softDelete,
   },

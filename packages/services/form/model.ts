@@ -93,6 +93,9 @@ export const editFormInput = z.object({
 
   notifyRespondent: z.boolean().optional()
     .describe("Whether to email the respondent on submission"),
+
+  password: z.string().min(4, "Password must be at least 4 characters").max(128).optional().nullable()
+    .describe("Set a password to protect the form. Pass null to remove protection."),
 });
 
 export type EditFormInputType = z.infer<typeof editFormInput>;
@@ -265,16 +268,22 @@ export const unarchiveFormInput = z.object({
 
 export type UnarchiveFormInputType = z.infer<typeof unarchiveFormInput>;
 
+export const setFormPasswordInput = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+  password: z.string().min(4, "Password must be at least 4 characters").max(128, "Password too long"),
+});
 
+export type SetFormPasswordInputType = z.infer<typeof setFormPasswordInput>;
 
+export const removeFormPasswordInput = z.object({
+  id: z.string().uuid("Invalid form ID format"),
+});
 
+export type RemoveFormPasswordInputType = z.infer<typeof removeFormPasswordInput>;
 
+export const verifyFormPasswordInput = z.object({
+  slug: z.string().min(1, "Slug is required"),
+  password: z.string().min(1, "Password is required"),
+});
 
-
-
-
-
-
-
-
-
+export type VerifyFormPasswordInputType = z.infer<typeof verifyFormPasswordInput>;

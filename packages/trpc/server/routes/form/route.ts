@@ -57,7 +57,13 @@ import {
   listFormTemplatesInputModel,
   listFormTemplatesOutputModel,
   createFormFromTemplateInputModel,
-  createFormFromTemplateOutputModel
+  createFormFromTemplateOutputModel,
+  setFormPasswordInputModel,
+  setFormPasswordOutputModel,
+  removeFormPasswordInputModel,
+  removeFormPasswordOutputModel,
+  verifyFormPasswordInputModel,
+  verifyFormPasswordOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -1308,6 +1314,106 @@ export const formRouter = router({
       throw new TRPCError({
         code: errorCode,
         message: error.message || "Failed to create form from template",
+      });
+    }
+  }),
+
+  setFormPassword: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/password/set"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(setFormPasswordInputModel)
+  .output(setFormPasswordOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to set a password",
+        });
+      }
+      return await formService.setFormPassword(sessionToken, input);
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to update this form";
+      const isNotFoundError = error.message === "Form not found";
+      
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to set password",
+      });
+    }
+  }),
+
+  removeFormPassword: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/password/remove"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(removeFormPasswordInputModel)
+  .output(removeFormPasswordOutputModel)
+  .mutation(async ({ input, ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to remove a password",
+        });
+      }
+      return await formService.removeFormPassword(sessionToken, input);
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+      const isSessionError = error.message === "Invalid or expired session";
+      const isAuthError = error.message === "You are not authorized to update this form";
+      const isNotFoundError = error.message === "Form not found";
+      
+      let errorCode: "UNAUTHORIZED" | "NOT_FOUND" | "BAD_REQUEST" = "BAD_REQUEST";
+      if (isSessionError || isAuthError) {
+        errorCode = "UNAUTHORIZED";
+      } else if (isNotFoundError) {
+        errorCode = "NOT_FOUND";
+      }
+      throw new TRPCError({
+        code: errorCode,
+        message: error.message || "Failed to remove password",
+      });
+    }
+  }),
+
+  verifyFormPassword: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/password/verify"),
+      tags: TAGS,
+    }
+  })
+  .input(verifyFormPasswordInputModel)
+  .output(verifyFormPasswordOutputModel)
+  .mutation(async ({ input }) => {
+    try {
+      return await formService.verifyFormPassword(input);
+    } catch (error: any) {
+      const isNotFoundError = error.message === "Form not found";
+      const isIncorrect = error.message === "Incorrect password";
+      throw new TRPCError({
+        code: isNotFoundError ? "NOT_FOUND" : (isIncorrect ? "UNAUTHORIZED" : "BAD_REQUEST"),
+        message: error.message || "Failed to verify password",
       });
     }
   }),
