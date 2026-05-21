@@ -114,7 +114,12 @@ interface RateLimitRecord {
 
 const rateLimitMap = new Map<string, RateLimitRecord>();
 
-const rateLimiter = (ip: string, action: string, limit: number, windowMs: number): boolean => {
+const rateLimiter = async (ip: string, action: string, limit: number, windowMs: number): Promise<boolean> => {
+  if (redis.isReady()) {
+    const result = await redis.rateLimit(ip, action, limit, windowMs / 1000);
+    return result.success;
+  }
+
   const key = `${ip}:${action}`;
   const now = Date.now();
   const record = rateLimitMap.get(key);
@@ -857,7 +862,7 @@ export const formRouter = router({
     .mutation(async ({ input, ctx }) => {
       try {
         const ipAddress = parseIpAddress(ctx.req) || "unknown_ip";
-        if (!rateLimiter(ipAddress, "submit_response", 10, 60 * 1000)) {
+        if (!(await rateLimiter(ipAddress, "submit_response", 10, 60 * 1000))) {
           throw new TRPCError({
             code: "TOO_MANY_REQUESTS",
             message: "Too many response submissions. Please try again in a minute.",

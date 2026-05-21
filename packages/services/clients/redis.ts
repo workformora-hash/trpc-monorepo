@@ -74,6 +74,71 @@ class RedisClient {
   }
 
   /**
+   * Sliding window rate limiting using Redis Sorted Sets (ZSET)
+   * If Redis is down, we fail open (success: true) to prevent locking out users (production best-practice).
+   */
+  public async rateLimit(
+    ip: string,
+    key: string,
+    limit: number,
+    windowSeconds: number
+  ): Promise<{ success: boolean; limit: number; remaining: number; resetTime: number }> {
+    const defaultResponse = { success: true, limit, remaining: limit, resetTime: Date.now() + windowSeconds * 1000 };
+    if (!this.client || !this.isConnected) return defaultResponse;
+
+    const redisKey = `rate_limit:${ip}:${key}`;
+    const now = Date.now();
+    const clearBefore = now - windowSeconds * 1000;
+
+    try {
+      // Use multi transaction to perform atomic updates
+      const multi = this.client.multi();
+      multi.zremrangebyscore(redisKey, 0, clearBefore);
+      multi.zcard(redisKey);
+      multi.zadd(redisKey, now, String(now));
+      multi.expire(redisKey, windowSeconds);
+
+      const results = await multi.exec();
+      if (!results) return defaultResponse;
+
+      // results structure: [[err, res], [err, res], ...]
+      // results[1][1] contains the count before this request was added
+      const currentCount = results[1][1] as number;
+
+      if (currentCount >= limit) {
+        // Over limit, delete the newly added score to keep ZSET accurate
+        await this.client.zrem(redisKey, String(now));
+        
+        // Find the oldest request time to compute exact reset time
+        const oldestArray = await this.client.zrange(redisKey, 0, 0, "WITHSCORES");
+        const oldestTime = oldestArray.length > 1 ? parseInt(oldestArray[1]!) : now;
+        const resetTime = oldestTime + windowSeconds * 1000;
+
+        return {
+          success: false,
+          limit,
+          remaining: 0,
+          resetTime,
+        };
+      }
+
+      return {
+        success: true,
+        limit,
+        remaining: limit - currentCount - 1,
+        resetTime: now + windowSeconds * 1000,
+      };
+    } catch (err: any) {
+      console.error(`[REDIS] Rate limiting failed for key "${redisKey}":`, err.message);
+      return defaultResponse;
+    }
+  }
+
+  public isReady(): boolean {
+    return this.client !== null && this.isConnected;
+  }
+
+  /**
    * Helper to invalidate form key
    */
   public async invalidateForm(slug: string): Promise<void> {

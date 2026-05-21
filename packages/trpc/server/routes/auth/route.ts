@@ -1,4 +1,4 @@
-import { userService } from "../../services";
+import { userService, redis } from "../../services";
 import { publicProcedure, router } from "../../trpc";
 import { generatePath } from "../../utils/path-generator";
 import { TRPCError } from "@trpc/server";
@@ -50,7 +50,12 @@ interface RateLimitRecord {
 
 const rateLimitMap = new Map<string, RateLimitRecord>();
 
-const rateLimiter = (ip: string, action: string, limit: number, windowMs: number): boolean => {
+const rateLimiter = async (ip: string, action: string, limit: number, windowMs: number): Promise<boolean> => {
+  if (redis.isReady()) {
+    const result = await redis.rateLimit(ip, action, limit, windowMs / 1000);
+    return result.success;
+  }
+
   const key = `${ip}:${action}`;
   const now = Date.now();
   const record = rateLimitMap.get(key);
@@ -105,7 +110,7 @@ export const authRouter = router({
     .mutation(async ({ input, ctx }) => {
       try {
         const ipAddress = parseIpAddress(ctx.req) || "unknown_ip";
-        if (!rateLimiter(ipAddress, "register", 5, 10 * 60 * 1000)) {
+        if (!(await rateLimiter(ipAddress, "register", 5, 10 * 60 * 1000))) {
           throw new TRPCError({
             code: "TOO_MANY_REQUESTS",
             message: "Too many registration attempts. Please try again after 10 minutes.",
@@ -162,7 +167,7 @@ export const authRouter = router({
     .mutation(async ({ input, ctx }) => {
       try {
         const ipAddress = parseIpAddress(ctx.req) || "unknown_ip";
-        if (!rateLimiter(ipAddress, "login", 10, 15 * 60 * 1000)) {
+        if (!(await rateLimiter(ipAddress, "login", 10, 15 * 60 * 1000))) {
           throw new TRPCError({
             code: "TOO_MANY_REQUESTS",
             message: "Too many login attempts. Please try again after 15 minutes.",
@@ -209,7 +214,7 @@ export const authRouter = router({
     .mutation(async ({ input, ctx }) => {
       try {
         const ipAddress = parseIpAddress(ctx.req) || "unknown_ip";
-        if (!rateLimiter(ipAddress, "resend_verification", 3, 10 * 60 * 1000)) {
+        if (!(await rateLimiter(ipAddress, "resend_verification", 3, 10 * 60 * 1000))) {
           throw new TRPCError({
             code: "TOO_MANY_REQUESTS",
             message: "Too many requests. Please try again after 10 minutes.",
@@ -240,7 +245,7 @@ export const authRouter = router({
     .mutation(async ({ input, ctx }) => {
       try {
         const ipAddress = parseIpAddress(ctx.req) || "unknown_ip";
-        if (!rateLimiter(ipAddress, "forgot_password", 3, 10 * 60 * 1000)) {
+        if (!(await rateLimiter(ipAddress, "forgot_password", 3, 10 * 60 * 1000))) {
           throw new TRPCError({
             code: "TOO_MANY_REQUESTS",
             message: "Too many requests. Please try again after 10 minutes.",
@@ -273,7 +278,7 @@ export const authRouter = router({
     .mutation(async ({ input, ctx }) => {
       try {
         const ipAddress = parseIpAddress(ctx.req) || "unknown_ip";
-        if (!rateLimiter(ipAddress, "reset_password", 5, 15 * 60 * 1000)) {
+        if (!(await rateLimiter(ipAddress, "reset_password", 5, 15 * 60 * 1000))) {
           throw new TRPCError({
             code: "TOO_MANY_REQUESTS",
             message: "Too many requests. Please try again after 15 minutes.",
@@ -401,7 +406,7 @@ export const authRouter = router({
     .mutation(async ({ input, ctx }) => {
       try {
         const ipAddress = parseIpAddress(ctx.req) || "unknown_ip";
-        if (!rateLimiter(ipAddress, "google_login", 20, 15 * 60 * 1000)) {
+        if (!(await rateLimiter(ipAddress, "google_login", 20, 15 * 60 * 1000))) {
           throw new TRPCError({
             code: "TOO_MANY_REQUESTS",
             message: "Too many login attempts. Please try again after 15 minutes.",
