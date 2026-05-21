@@ -7,6 +7,7 @@ import { formResponsesTable } from "@repo/database/models/form-response";
 import { formFieldAnswersTable } from "@repo/database/models/form-field-answer";
 import { SYSTEM_THEMES } from "./themes";
 import { formEvents } from "./events";
+import { redis } from "../clients/redis";
 import crypto from "crypto";
 import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput, exportResponsesToCSVInput, getResponseByIdInput, restoreDeletedFormInput, archiveFormInput, unarchiveFormInput, setFormPasswordInput, removeFormPasswordInput, verifyFormPasswordInput, addFieldLogicRuleInput, editFieldLogicRuleInput, deleteFieldLogicRuleInput, getFormLogicTreeInput, listExploreFormsInput, listTemplatesByCategoryInput, trackFormViewInput, duplicateFormFieldInput } from "./model";
 import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType, ExportResponsesToCSVInputType, GetResponseByIdInputType, RestoreDeletedFormInputType, ArchiveFormInputType, UnarchiveFormInputType, SetFormPasswordInputType, RemoveFormPasswordInputType, VerifyFormPasswordInputType, AddFieldLogicRuleInputType, EditFieldLogicRuleInputType, DeleteFieldLogicRuleInputType, GetFormLogicTreeInputType, ListExploreFormsInputType, ListTemplatesByCategoryInputType, TrackFormViewInputType, DuplicateFormFieldInputType } from "./model";
@@ -284,11 +285,22 @@ class FormService {
       throw new Error("Failed to update form");
     }
 
+    await redis.invalidateForm(existingForm.slug);
+    if (updatedForm.slug !== existingForm.slug) {
+      await redis.invalidateForm(updatedForm.slug);
+    }
+
     return updatedForm;
   }
 
   public async getFormBySlugPublic(payload: GetFormBySlugPublicInputType) {
     const validated = await getFormBySlugPublicInput.parseAsync(payload);
+
+    const cacheKey = `form:slug:${validated.slug}`;
+    const cached = await redis.get<any>(cacheKey);
+    if (cached) {
+      return cached;
+    }
 
     const [form] = await db
       .select()
@@ -316,11 +328,13 @@ class FormService {
     // If form is password-protected, return metadata only (no fields)
     const isPasswordProtected = !!form.passwordHash;
     if (isPasswordProtected) {
-      return {
+      const responsePayload = {
         form: { ...form, passwordHash: undefined },
         fields: [], // withhold fields until password is verified
         isPasswordProtected: true,
       };
+      await redis.set(cacheKey, responsePayload, 300);
+      return responsePayload;
     }
 
     const fields = await db
@@ -329,11 +343,14 @@ class FormService {
       .where(eq(formFieldsTable.formId, form.id))
       .orderBy(sql`${formFieldsTable.orderIndex} ASC`);
 
-    return {
+    const responsePayload = {
       form,
       fields,
       isPasswordProtected: false,
     };
+    await redis.set(cacheKey, responsePayload, 300);
+
+    return responsePayload;
   }
 
   public async getFormByIdCreator(token: string, payload: GetFormByIdCreatorInputType) {
@@ -427,6 +444,8 @@ class FormService {
     if (!deletedForm) {
       throw new Error("Failed to delete form");
     }
+
+    await this.invalidateFormCache(deletedForm.id);
 
     return deletedForm;
   }
@@ -576,6 +595,8 @@ class FormService {
       throw new Error("Failed to publish form");
     }
 
+    await this.invalidateFormCache(updatedForm.id);
+
     return updatedForm;
   }
 
@@ -616,6 +637,8 @@ class FormService {
     if (!updatedForm) {
       throw new Error("Failed to unpublish form");
     }
+
+    await this.invalidateFormCache(updatedForm.id);
 
     return updatedForm;
   }
@@ -2450,6 +2473,21 @@ class FormService {
     }
 
     return newField;
+  }
+
+  private async invalidateFormCache(formId: string) {
+    try {
+      const [form] = await db
+        .select()
+        .from(formsTable)
+        .where(eq(formsTable.id, formId))
+        .limit(1);
+      if (form) {
+        await redis.invalidateForm(form.slug);
+      }
+    } catch (err: any) {
+      console.error("[FormService] Invalidate form cache failed:", err.message);
+    }
   }
 }
 

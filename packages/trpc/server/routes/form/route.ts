@@ -1,4 +1,4 @@
-import { formService, formEvents } from "../../services";
+import { formService, formEvents, redis } from "../../services";
 import { publicProcedure, router } from "../../trpc";
 import { generatePath } from "../../utils/path-generator";
 import { TRPCError } from "@trpc/server";

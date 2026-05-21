@@ -20,6 +20,7 @@
     "@repo/logger": "workspace:*",
     "bcryptjs": "^3.0.3",
     "google-auth-library": "^10.5.0",
+    "ioredis": "^5.10.1",
     "zod": "^4.3.5"
   }
 }
