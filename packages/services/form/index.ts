@@ -6,6 +6,7 @@ import { formFieldsTable } from "@repo/database/models/form-field";
 import { formResponsesTable } from "@repo/database/models/form-response";
 import { formFieldAnswersTable } from "@repo/database/models/form-field-answer";
 import { SYSTEM_THEMES } from "./themes";
+import { formEvents } from "./events";
 import crypto from "crypto";
 import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput, exportResponsesToCSVInput, getResponseByIdInput, restoreDeletedFormInput, archiveFormInput, unarchiveFormInput, setFormPasswordInput, removeFormPasswordInput, verifyFormPasswordInput, addFieldLogicRuleInput, editFieldLogicRuleInput, deleteFieldLogicRuleInput, getFormLogicTreeInput, listExploreFormsInput, listTemplatesByCategoryInput } from "./model";
 import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType, ExportResponsesToCSVInputType, GetResponseByIdInputType, RestoreDeletedFormInputType, ArchiveFormInputType, UnarchiveFormInputType, SetFormPasswordInputType, RemoveFormPasswordInputType, VerifyFormPasswordInputType, AddFieldLogicRuleInputType, EditFieldLogicRuleInputType, DeleteFieldLogicRuleInputType, GetFormLogicTreeInputType, ListExploreFormsInputType, ListTemplatesByCategoryInputType } from "./model";
@@ -1120,6 +1121,14 @@ class FormService {
       // Never let email failures break the submission flow
       console.error("[FormService] Email notification error:", emailErr);
     }
+
+    formEvents.emit("response", {
+      formId: result.formId,
+      responseId: result.id,
+      respondentEmail: result.respondentEmail,
+      ipAddress: result.ipAddress,
+      submittedAt: result.submittedAt,
+    });
 
     return {
       success: true,
@@ -2429,4 +2438,5 @@ export const FORM_TEMPLATES: FormTemplate[] = [
 ];
 
 export default FormService;
+export { formEvents };
 

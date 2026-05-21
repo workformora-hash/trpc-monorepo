@@ -1,7 +1,8 @@
-import { formService } from "../../services";
+import { formService, formEvents } from "../../services";
 import { publicProcedure, router } from "../../trpc";
 import { generatePath } from "../../utils/path-generator";
 import { TRPCError } from "@trpc/server";
+import { observable } from "@trpc/server/observable";
 import {
   createFormInputModel,
   createFormOutputModel,
@@ -79,7 +80,9 @@ import {
   getQuestionDurationStatsInputModel,
   getQuestionDurationStatsOutputModel,
   getResponseGeoDistributionInputModel,
-  getResponseGeoDistributionOutputModel
+  getResponseGeoDistributionOutputModel,
+  onNewResponseInputModel,
+  onNewResponseOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -1689,4 +1692,35 @@ export const formRouter = router({
       });
     }
   }),
+
+  onNewResponse: publicProcedure
+    .input(onNewResponseInputModel)
+    .output(onNewResponseOutputModel)
+    .subscription(({ input }) => {
+      return observable<{
+        formId: string;
+        responseId: string;
+        respondentEmail?: string | null;
+        ipAddress?: string | null;
+        submittedAt: Date;
+      }>((emit) => {
+        const onResponse = (data: {
+          formId: string;
+          responseId: string;
+          respondentEmail?: string | null;
+          ipAddress?: string | null;
+          submittedAt: Date;
+        }) => {
+          if (data.formId === input.formId) {
+            emit.next(data);
+          }
+        };
+
+        formEvents.on("response", onResponse);
+
+        return () => {
+          formEvents.off("response", onResponse);
+        };
+      });
+    }),
 });

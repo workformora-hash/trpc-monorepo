@@ -821,6 +821,18 @@ export const getResponseGeoDistributionOutputModel = z.object({
   totalResponses: z.number(),
 });
 
+export const onNewResponseInputModel = z.object({
+  formId: z.string().uuid("Invalid form ID format"),
+});
+
+export const onNewResponseOutputModel = z.object({
+  formId: z.string(),
+  responseId: z.string(),
+  respondentEmail: z.string().optional().nullable(),
+  ipAddress: z.string().optional().nullable(),
+  submittedAt: z.date(),
+});
+
 
 
 
