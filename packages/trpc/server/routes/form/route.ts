@@ -71,7 +71,11 @@ import {
   deleteFieldLogicRuleInputModel,
   deleteFieldLogicRuleOutputModel,
   getFormLogicTreeInputModel,
-  getFormLogicTreeOutputModel
+  getFormLogicTreeOutputModel,
+  listExploreFormsInputModel,
+  listExploreFormsOutputModel,
+  listTemplatesByCategoryInputModel,
+  listTemplatesByCategoryOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -1560,6 +1564,46 @@ export const formRouter = router({
       throw new TRPCError({
         code: isNotFoundError ? "NOT_FOUND" : "BAD_REQUEST",
         message: error.message || "Failed to fetch logic tree",
+      });
+    }
+  }),
+
+  listExploreForms: publicProcedure.meta({
+    openapi: {
+      method: "GET",
+      path: getPath("/explore"),
+      tags: TAGS,
+    }
+  })
+  .input(listExploreFormsInputModel)
+  .output(listExploreFormsOutputModel)
+  .query(async ({ input }) => {
+    try {
+      return await formService.listExploreForms(input);
+    } catch (error: any) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: error.message || "Failed to search public explore forms",
+      });
+    }
+  }),
+
+  listTemplatesByCategory: publicProcedure.meta({
+    openapi: {
+      method: "GET",
+      path: getPath("/templates/category"),
+      tags: TAGS,
+    }
+  })
+  .input(listTemplatesByCategoryInputModel)
+  .output(listTemplatesByCategoryOutputModel)
+  .query(async ({ input }) => {
+    try {
+      return await formService.listTemplatesByCategory(input);
+    } catch (error: any) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: error.message || "Failed to filter templates",
       });
     }
   }),

@@ -7,8 +7,8 @@ import { formResponsesTable } from "@repo/database/models/form-response";
 import { formFieldAnswersTable } from "@repo/database/models/form-field-answer";
 import { SYSTEM_THEMES } from "./themes";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput, exportResponsesToCSVInput, getResponseByIdInput, restoreDeletedFormInput, archiveFormInput, unarchiveFormInput, setFormPasswordInput, removeFormPasswordInput, verifyFormPasswordInput, addFieldLogicRuleInput, editFieldLogicRuleInput, deleteFieldLogicRuleInput, getFormLogicTreeInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType, ExportResponsesToCSVInputType, GetResponseByIdInputType, RestoreDeletedFormInputType, ArchiveFormInputType, UnarchiveFormInputType, SetFormPasswordInputType, RemoveFormPasswordInputType, VerifyFormPasswordInputType, AddFieldLogicRuleInputType, EditFieldLogicRuleInputType, DeleteFieldLogicRuleInputType, GetFormLogicTreeInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput, exportResponsesToCSVInput, getResponseByIdInput, restoreDeletedFormInput, archiveFormInput, unarchiveFormInput, setFormPasswordInput, removeFormPasswordInput, verifyFormPasswordInput, addFieldLogicRuleInput, editFieldLogicRuleInput, deleteFieldLogicRuleInput, getFormLogicTreeInput, listExploreFormsInput, listTemplatesByCategoryInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType, ExportResponsesToCSVInputType, GetResponseByIdInputType, RestoreDeletedFormInputType, ArchiveFormInputType, UnarchiveFormInputType, SetFormPasswordInputType, RemoveFormPasswordInputType, VerifyFormPasswordInputType, AddFieldLogicRuleInputType, EditFieldLogicRuleInputType, DeleteFieldLogicRuleInputType, GetFormLogicTreeInputType, ListExploreFormsInputType, ListTemplatesByCategoryInputType } from "./model";
 import type { EmailService } from "@repo/email";
 import bcrypt from "bcryptjs";
 
@@ -2117,6 +2117,58 @@ class FormService {
       logicTree,
     };
   }
+
+  public async listExploreForms(payload: ListExploreFormsInputType) {
+    const validated = await listExploreFormsInput.parseAsync(payload);
+    const search = validated.search;
+    const theme = validated.theme;
+    const limit = validated.limit ?? 10;
+    const offset = validated.offset ?? 0;
+
+    let queryConditions = and(
+      eq(formsTable.visibility, "public"),
+      eq(formsTable.isPublished, true),
+      eq(formsTable.isArchived, false),
+      sql`${formsTable.deletedAt} IS NULL`
+    );
+
+    if (search) {
+      queryConditions = and(
+        queryConditions,
+        sql`(${formsTable.title} ILIKE ${`%${search}%`} OR ${formsTable.description} ILIKE ${`%${search}%`})`
+      );
+    }
+
+    if (theme) {
+      queryConditions = and(
+        queryConditions,
+        eq(formsTable.theme, theme)
+      );
+    }
+
+    const forms = await db
+      .select()
+      .from(formsTable)
+      .where(queryConditions)
+      .limit(limit)
+      .offset(offset)
+      .orderBy(sql`${formsTable.createdAt} DESC`);
+
+    return {
+      forms,
+      limit,
+      offset,
+    };
+  }
+
+  public async listTemplatesByCategory(payload: ListTemplatesByCategoryInputType) {
+    const validated = await listTemplatesByCategoryInput.parseAsync(payload);
+    const category = validated.category;
+    if (category) {
+      return FORM_TEMPLATES.filter((t) => t.category?.toLowerCase() === category.toLowerCase());
+    }
+    return FORM_TEMPLATES;
+  }
 }
 
 export interface TemplateField {
@@ -2130,6 +2182,7 @@ export interface FormTemplate {
   id: string;
   name: string;
   description: string;
+  category: string;
   theme: string;
   fields: TemplateField[];
 }
@@ -2139,6 +2192,7 @@ export const FORM_TEMPLATES: FormTemplate[] = [
     id: "customer-feedback",
     name: "Customer Satisfaction Survey",
     description: "Gather feedback from your users to improve your product or service.",
+    category: "Feedback",
     theme: "default",
     fields: [
       { label: "What is your full name?", type: "short_text", required: true },
@@ -2162,6 +2216,7 @@ export const FORM_TEMPLATES: FormTemplate[] = [
     id: "event-registration",
     name: "Event Registration & RSVP",
     description: "Collect sign-ups and dietary preferences for your next event or meetup.",
+    category: "Registration",
     theme: "neon",
     fields: [
       { label: "Attendee Name", type: "short_text", required: true },
@@ -2185,6 +2240,7 @@ export const FORM_TEMPLATES: FormTemplate[] = [
     id: "product-market-fit",
     name: "Product Market Fit (PMF) Survey",
     description: "Measure the PMF score of your startup using the standard Sean Ellis question template.",
+    category: "Marketing",
     theme: "modern",
     fields: [
       {

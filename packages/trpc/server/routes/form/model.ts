@@ -730,6 +730,57 @@ export const getFormLogicTreeOutputModel = z.object({
   ),
 });
 
+export const listExploreFormsInputModel = z.object({
+  search: z.string().optional(),
+  theme: z.string().optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  offset: z.number().int().min(0).optional(),
+});
+
+export const listExploreFormsOutputModel = z.object({
+  forms: z.array(
+    z.object({
+      id: z.string(),
+      userId: z.string(),
+      title: z.string(),
+      description: z.string().nullable(),
+      slug: z.string(),
+      isPublished: z.boolean(),
+      visibility: z.string(),
+      theme: z.string(),
+      expiresAt: z.date().nullable(),
+      maxResponses: z.number().nullable(),
+      isArchived: z.boolean(),
+      createdAt: z.date(),
+      updatedAt: z.date(),
+    })
+  ),
+  limit: z.number(),
+  offset: z.number(),
+});
+
+export const listTemplatesByCategoryInputModel = z.object({
+  category: z.string().optional(),
+});
+
+export const templateFieldModel = z.object({
+  label: z.string(),
+  type: z.string(),
+  required: z.boolean(),
+  validation: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+
+export const listTemplatesByCategoryOutputModel = z.array(
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string(),
+    category: z.string(),
+    theme: z.string(),
+    fields: z.array(templateFieldModel),
+  })
+);
+
 
 
 

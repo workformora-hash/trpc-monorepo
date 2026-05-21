@@ -319,3 +319,18 @@ export const getFormLogicTreeInput = z.object({
 });
 
 export type GetFormLogicTreeInputType = z.infer<typeof getFormLogicTreeInput>;
+
+export const listExploreFormsInput = z.object({
+  search: z.string().optional(),
+  theme: z.string().optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  offset: z.number().int().min(0).optional(),
+});
+
+export type ListExploreFormsInputType = z.infer<typeof listExploreFormsInput>;
+
+export const listTemplatesByCategoryInput = z.object({
+  category: z.string().optional(),
+});
+
+export type ListTemplatesByCategoryInputType = z.infer<typeof listTemplatesByCategoryInput>;
