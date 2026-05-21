@@ -7,8 +7,8 @@ import { formResponsesTable } from "@repo/database/models/form-response";
 import { formFieldAnswersTable } from "@repo/database/models/form-field-answer";
 import { SYSTEM_THEMES } from "./themes";
 import crypto from "crypto";
-import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput, exportResponsesToCSVInput, getResponseByIdInput, restoreDeletedFormInput, archiveFormInput, unarchiveFormInput, setFormPasswordInput, removeFormPasswordInput, verifyFormPasswordInput } from "./model";
-import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType, ExportResponsesToCSVInputType, GetResponseByIdInputType, RestoreDeletedFormInputType, ArchiveFormInputType, UnarchiveFormInputType, SetFormPasswordInputType, RemoveFormPasswordInputType, VerifyFormPasswordInputType } from "./model";
+import { createFormInput, editFormInput, getFormBySlugPublicInput, getFormByIdCreatorInput, deleteFormInput, duplicateFormInput, publishFormInput, unpublishFormInput, checkSlugAvailabilityInput, clearFormResponsesInput, addFormFieldInput, editFormFieldInput, deleteFormFieldInput, reorderFormFieldsInput, submitResponseInput, listResponsesInput, getFormAnalyticsInput, deleteResponseInput, listPublicFormsInput, exportResponsesToCSVInput, getResponseByIdInput, restoreDeletedFormInput, archiveFormInput, unarchiveFormInput, setFormPasswordInput, removeFormPasswordInput, verifyFormPasswordInput, addFieldLogicRuleInput, editFieldLogicRuleInput, deleteFieldLogicRuleInput, getFormLogicTreeInput } from "./model";
+import type { CreateFormInputType, EditFormInputType, GetFormBySlugPublicInputType, GetFormByIdCreatorInputType, DeleteFormInputType, DuplicateFormInputType, PublishFormInputType, UnpublishFormInputType, CheckSlugAvailabilityInputType, ClearFormResponsesInputType, AddFormFieldInputType, EditFormFieldInputType, DeleteFormFieldInputType, ReorderFormFieldsInputType, SubmitResponseInputType, ListResponsesInputType, GetFormAnalyticsInputType, DeleteResponseInputType, ListPublicFormsInputType, ExportResponsesToCSVInputType, GetResponseByIdInputType, RestoreDeletedFormInputType, ArchiveFormInputType, UnarchiveFormInputType, SetFormPasswordInputType, RemoveFormPasswordInputType, VerifyFormPasswordInputType, AddFieldLogicRuleInputType, EditFieldLogicRuleInputType, DeleteFieldLogicRuleInputType, GetFormLogicTreeInputType } from "./model";
 import type { EmailService } from "@repo/email";
 import bcrypt from "bcryptjs";
 
@@ -1968,7 +1968,153 @@ class FormService {
     return {
       success: true,
       form: { ...form, passwordHash: undefined },
-      fields,
+      fields: fields,
+    };
+  }
+
+  public async addFieldLogicRule(token: string, payload: AddFieldLogicRuleInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await addFieldLogicRuleInput.parseAsync(payload);
+
+    const [fieldWithForm] = await db
+      .select({
+        field: formFieldsTable,
+        form: formsTable,
+      })
+      .from(formFieldsTable)
+      .innerJoin(formsTable, eq(formFieldsTable.formId, formsTable.id))
+      .where(
+        and(
+          eq(formFieldsTable.id, validated.fieldId),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!fieldWithForm) {
+      throw new Error("Form field not found");
+    }
+
+    if (fieldWithForm.form.userId !== userId) {
+      throw new Error("You are not authorized to edit fields for this form");
+    }
+
+    const currentValidation = fieldWithForm.field.validation || {};
+    const updatedValidation = {
+      ...currentValidation,
+      logicRule: validated.rule,
+    };
+
+    const [updatedField] = await db
+      .update(formFieldsTable)
+      .set({
+        validation: updatedValidation,
+      })
+      .where(eq(formFieldsTable.id, validated.fieldId))
+      .returning();
+
+    if (!updatedField) {
+      throw new Error("Failed to add logic rule");
+    }
+
+    return {
+      success: true,
+      fieldId: updatedField.id,
+      validation: updatedField.validation as Record<string, unknown>,
+    };
+  }
+
+  public async editFieldLogicRule(token: string, payload: EditFieldLogicRuleInputType) {
+    return this.addFieldLogicRule(token, payload);
+  }
+
+  public async deleteFieldLogicRule(token: string, payload: DeleteFieldLogicRuleInputType) {
+    const userId = await this.getUserIdFromToken(token);
+    const validated = await deleteFieldLogicRuleInput.parseAsync(payload);
+
+    const [fieldWithForm] = await db
+      .select({
+        field: formFieldsTable,
+        form: formsTable,
+      })
+      .from(formFieldsTable)
+      .innerJoin(formsTable, eq(formFieldsTable.formId, formsTable.id))
+      .where(
+        and(
+          eq(formFieldsTable.id, validated.fieldId),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!fieldWithForm) {
+      throw new Error("Form field not found");
+    }
+
+    if (fieldWithForm.form.userId !== userId) {
+      throw new Error("You are not authorized to edit fields for this form");
+    }
+
+    const currentValidation = fieldWithForm.field.validation || {};
+    const { logicRule, ...restValidation } = currentValidation;
+
+    const [updatedField] = await db
+      .update(formFieldsTable)
+      .set({
+        validation: restValidation,
+      })
+      .where(eq(formFieldsTable.id, validated.fieldId))
+      .returning();
+
+    if (!updatedField) {
+      throw new Error("Failed to delete logic rule");
+    }
+
+    return {
+      success: true,
+      fieldId: updatedField.id,
+    };
+  }
+
+  public async getFormLogicTree(payload: GetFormLogicTreeInputType) {
+    const validated = await getFormLogicTreeInput.parseAsync(payload);
+
+    const [form] = await db
+      .select()
+      .from(formsTable)
+      .where(
+        and(
+          eq(formsTable.slug, validated.slug),
+          sql`${formsTable.deletedAt} IS NULL`
+        )
+      )
+      .limit(1);
+
+    if (!form) {
+      throw new Error("Form not found");
+    }
+
+    const fields = await db
+      .select()
+      .from(formFieldsTable)
+      .where(eq(formFieldsTable.formId, form.id))
+      .orderBy(sql`${formFieldsTable.orderIndex} ASC`);
+
+    const logicTree = fields.map((field) => {
+      const validation = field.validation || {};
+      const logicRule = validation.logicRule || null;
+      return {
+        fieldId: field.id,
+        label: field.label,
+        type: field.type,
+        logicRule: logicRule as any,
+      };
+    });
+
+    return {
+      formId: form.id,
+      title: form.title,
+      logicTree,
     };
   }
 }

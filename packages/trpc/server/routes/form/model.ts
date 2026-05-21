@@ -676,6 +676,60 @@ export const verifyFormPasswordOutputModel = z.object({
   fields: z.array(formFieldModel),
 });
 
+export const logicRuleSchema = z.object({
+  triggerFieldId: z.string().uuid("Invalid trigger field ID format"),
+  operator: z.enum(["equals", "not_equals", "greater_than", "less_than"]),
+  value: z.unknown(),
+});
+
+export const addFieldLogicRuleInputModel = z.object({
+  fieldId: z.string().uuid("Invalid field ID format"),
+  rule: logicRuleSchema,
+});
+
+export const addFieldLogicRuleOutputModel = z.object({
+  success: z.boolean(),
+  fieldId: z.string(),
+  validation: z.record(z.string(), z.unknown()),
+});
+
+export const editFieldLogicRuleInputModel = z.object({
+  fieldId: z.string().uuid("Invalid field ID format"),
+  rule: logicRuleSchema,
+});
+
+export const editFieldLogicRuleOutputModel = z.object({
+  success: z.boolean(),
+  fieldId: z.string(),
+  validation: z.record(z.string(), z.unknown()),
+});
+
+export const deleteFieldLogicRuleInputModel = z.object({
+  fieldId: z.string().uuid("Invalid field ID format"),
+});
+
+export const deleteFieldLogicRuleOutputModel = z.object({
+  success: z.boolean(),
+  fieldId: z.string(),
+});
+
+export const getFormLogicTreeInputModel = z.object({
+  slug: z.string().min(1, "Slug is required"),
+});
+
+export const getFormLogicTreeOutputModel = z.object({
+  formId: z.string(),
+  title: z.string(),
+  logicTree: z.array(
+    z.object({
+      fieldId: z.string(),
+      label: z.string(),
+      type: z.string(),
+      logicRule: logicRuleSchema.nullable(),
+    })
+  ),
+});
+
 
 
 

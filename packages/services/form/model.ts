@@ -287,3 +287,35 @@ export const verifyFormPasswordInput = z.object({
 });
 
 export type VerifyFormPasswordInputType = z.infer<typeof verifyFormPasswordInput>;
+
+export const logicRuleSchema = z.object({
+  triggerFieldId: z.string().uuid("Invalid trigger field ID format"),
+  operator: z.enum(["equals", "not_equals", "greater_than", "less_than"]),
+  value: z.unknown(),
+});
+
+export const addFieldLogicRuleInput = z.object({
+  fieldId: z.string().uuid("Invalid field ID format"),
+  rule: logicRuleSchema,
+});
+
+export type AddFieldLogicRuleInputType = z.infer<typeof addFieldLogicRuleInput>;
+
+export const editFieldLogicRuleInput = z.object({
+  fieldId: z.string().uuid("Invalid field ID format"),
+  rule: logicRuleSchema,
+});
+
+export type EditFieldLogicRuleInputType = z.infer<typeof editFieldLogicRuleInput>;
+
+export const deleteFieldLogicRuleInput = z.object({
+  fieldId: z.string().uuid("Invalid field ID format"),
+});
+
+export type DeleteFieldLogicRuleInputType = z.infer<typeof deleteFieldLogicRuleInput>;
+
+export const getFormLogicTreeInput = z.object({
+  slug: z.string().min(1, "Slug is required"),
+});
+
+export type GetFormLogicTreeInputType = z.infer<typeof getFormLogicTreeInput>;
