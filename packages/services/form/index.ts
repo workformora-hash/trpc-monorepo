@@ -978,11 +978,28 @@ class FormService {
           if (typeof val !== "string") {
             throw new Error(`Answer for "${field.label}" must be a text string.`);
           }
-          if (config.minLength !== undefined && val.length < config.minLength) {
+          if (config.minLength !== undefined && config.minLength !== null && val.length < config.minLength) {
             throw new Error(`Answer for "${field.label}" must be at least ${config.minLength} characters.`);
           }
-          if (config.maxLength !== undefined && val.length > config.maxLength) {
+          if (config.maxLength !== undefined && config.maxLength !== null && val.length > config.maxLength) {
             throw new Error(`Answer for "${field.label}" must be at most ${config.maxLength} characters.`);
+          }
+          if (config.pattern !== undefined && config.pattern !== null && config.pattern !== "") {
+            try {
+              const regex = new RegExp(config.pattern);
+              if (!regex.test(val)) {
+                throw new Error(config.patternMessage || `Answer for "${field.label}" does not match the required format.`);
+              }
+            } catch (e) {}
+          }
+          if (config.format === "url" && !/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(val)) {
+            throw new Error(`Answer for "${field.label}" must be a valid URL.`);
+          }
+          if (config.format === "alpha" && !/^[a-zA-Z]+$/.test(val)) {
+            throw new Error(`Answer for "${field.label}" must contain letters only.`);
+          }
+          if (config.format === "alphanumeric" && !/^[a-zA-Z0-9]+$/.test(val)) {
+            throw new Error(`Answer for "${field.label}" must contain letters and numbers only.`);
           }
           preparedAnswers.push({ fieldId: field.id, value: { value: val } });
           break;
@@ -996,6 +1013,20 @@ class FormService {
           if (!emailRegex.test(val)) {
             throw new Error(`Answer for "${field.label}" must be a valid email format.`);
           }
+          if (config.blockFreeEmails) {
+            const freeProviders = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com", "icloud.com"];
+            const domain = val.split("@")[1]?.toLowerCase();
+            if (domain && freeProviders.includes(domain)) {
+              throw new Error(`Answer for "${field.label}" must be a business/corporate email address.`);
+            }
+          }
+          if (config.allowedDomains) {
+            const domains = config.allowedDomains.split(",").map((d: string) => d.trim().toLowerCase());
+            const domain = val.split("@")[1]?.toLowerCase();
+            if (domain && !domains.includes(domain)) {
+              throw new Error(`Answer for "${field.label}" must belong to one of these domains: ${config.allowedDomains}`);
+            }
+          }
           preparedAnswers.push({ fieldId: field.id, value: { value: val } });
           break;
         }
@@ -1004,11 +1035,14 @@ class FormService {
           if (typeof val !== "number" || isNaN(val)) {
             throw new Error(`Answer for "${field.label}" must be a valid number.`);
           }
-          if (config.min !== undefined && val < config.min) {
+          if (config.min !== undefined && config.min !== null && val < config.min) {
             throw new Error(`Answer for "${field.label}" must be at least ${config.min}.`);
           }
-          if (config.max !== undefined && val > config.max) {
+          if (config.max !== undefined && config.max !== null && val > config.max) {
             throw new Error(`Answer for "${field.label}" must be at most ${config.max}.`);
+          }
+          if (config.integerOnly && !Number.isInteger(val)) {
+            throw new Error(`Answer for "${field.label}" must be a whole integer.`);
           }
           preparedAnswers.push({ fieldId: field.id, value: { value: val } });
           break;
@@ -1018,8 +1052,9 @@ class FormService {
           if (typeof val !== "number" || !Number.isInteger(val) || val < 1) {
             throw new Error(`Answer for "${field.label}" must be an integer starting from 1.`);
           }
-          if (config.max !== undefined && val > config.max) {
-            throw new Error(`Answer for "${field.label}" must be at most ${config.max}.`);
+          const maxStars = config.maxStars || config.max || 5;
+          if (val > maxStars) {
+            throw new Error(`Rating for "${field.label}" cannot exceed ${maxStars} stars.`);
           }
           preparedAnswers.push({ fieldId: field.id, value: { value: val } });
           break;
@@ -1028,6 +1063,9 @@ class FormService {
         case "checkbox": {
           if (typeof val !== "boolean") {
             throw new Error(`Answer for "${field.label}" must be a true/false value.`);
+          }
+          if (config.mustBeChecked && !val) {
+            throw new Error(`You must accept/check the field "${field.label}".`);
           }
           preparedAnswers.push({ fieldId: field.id, value: { value: val } });
           break;
@@ -1058,6 +1096,12 @@ class FormService {
               throw new Error(`Selected option "${item}" for "${field.label}" is invalid.`);
             }
           }
+          if (config.minChoices !== undefined && config.minChoices !== null && val.length < config.minChoices) {
+            throw new Error(`Please select at least ${config.minChoices} options for "${field.label}".`);
+          }
+          if (config.maxChoices !== undefined && config.maxChoices !== null && val.length > config.maxChoices) {
+            throw new Error(`Please select at most ${config.maxChoices} options for "${field.label}".`);
+          }
           preparedAnswers.push({ fieldId: field.id, value: { value: val } });
           break;
         }
@@ -1070,10 +1114,10 @@ class FormService {
           if (isNaN(parsedDate)) {
             throw new Error(`Answer for "${field.label}" must be a valid date format.`);
           }
-          if (config.minDate !== undefined && parsedDate < Date.parse(config.minDate)) {
+          if (config.minDate !== undefined && config.minDate !== null && config.minDate !== "" && parsedDate < Date.parse(config.minDate)) {
             throw new Error(`Answer for "${field.label}" cannot be earlier than ${config.minDate}.`);
           }
-          if (config.maxDate !== undefined && parsedDate > Date.parse(config.maxDate)) {
+          if (config.maxDate !== undefined && config.maxDate !== null && config.maxDate !== "" && parsedDate > Date.parse(config.maxDate)) {
             throw new Error(`Answer for "${field.label}" cannot be later than ${config.maxDate}.`);
           }
           preparedAnswers.push({ fieldId: field.id, value: { value: val } });

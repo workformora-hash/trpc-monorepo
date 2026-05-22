@@ -66,6 +66,9 @@ export function validateField(
   field: FormField,
   value: unknown
 ): string | null {
+  const config = (field.validation as Record<string, any>) || {};
+
+  // Check required fields
   if (field.required) {
     if (value === undefined || value === null || String(value).trim() === "")
       return "This question is required.";
@@ -75,13 +78,120 @@ export function validateField(
       return "You must check this box to continue.";
   }
 
+  // If answer is provided, validate custom advanced rules
   if (value !== undefined && value !== null && String(value).trim() !== "") {
-    if (field.type === "email") {
-      const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value));
-      if (!ok) return "Please enter a valid email address.";
-    }
-    if (field.type === "number" && isNaN(Number(value))) {
-      return "Please enter a valid number.";
+    switch (field.type) {
+      case "short_text":
+      case "long_text": {
+        const strVal = String(value);
+        if (config.minLength !== undefined && config.minLength !== null && strVal.length < config.minLength) {
+          return `Answer must be at least ${config.minLength} characters.`;
+        }
+        if (config.maxLength !== undefined && config.maxLength !== null && strVal.length > config.maxLength) {
+          return `Answer must be at most ${config.maxLength} characters.`;
+        }
+        if (config.format === "url" && !/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(strVal)) {
+          return "Please enter a valid URL (e.g. https://example.com).";
+        }
+        if (config.format === "alpha" && !/^[a-zA-Z]+$/.test(strVal)) {
+          return "Answer must contain letters only.";
+        }
+        if (config.format === "alphanumeric" && !/^[a-zA-Z0-9]+$/.test(strVal)) {
+          return "Answer must contain letters and numbers only.";
+        }
+        if (config.pattern !== undefined && config.pattern !== null && config.pattern !== "") {
+          try {
+            const regex = new RegExp(config.pattern);
+            if (!regex.test(strVal)) {
+              return config.patternMessage || "Format is invalid.";
+            }
+          } catch (e) {}
+        }
+        break;
+      }
+
+      case "email": {
+        const strVal = String(value);
+        const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(strVal);
+        if (!ok) return "Please enter a valid email address.";
+
+        if (config.blockFreeEmails) {
+          const freeProviders = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com", "icloud.com"];
+          const domain = strVal.split("@")[1]?.toLowerCase();
+          if (domain && freeProviders.includes(domain)) {
+            return "Free email addresses are not allowed. Please use a business email.";
+          }
+        }
+
+        if (config.allowedDomains) {
+          const domains = config.allowedDomains.split(",").map((d: string) => d.trim().toLowerCase());
+          const domain = strVal.split("@")[1]?.toLowerCase();
+          if (domain && !domains.includes(domain)) {
+            return `Email domain must be one of: ${config.allowedDomains}`;
+          }
+        }
+        break;
+      }
+
+      case "number": {
+        const numVal = Number(value);
+        if (isNaN(numVal)) {
+          return "Please enter a valid number.";
+        }
+        if (config.min !== undefined && config.min !== null && numVal < config.min) {
+          return `Value must be at least ${config.min}.`;
+        }
+        if (config.max !== undefined && config.max !== null && numVal > config.max) {
+          return `Value must be at most ${config.max}.`;
+        }
+        if (config.integerOnly && !Number.isInteger(numVal)) {
+          return "Answer must be a whole integer.";
+        }
+        break;
+      }
+
+      case "rating": {
+        const numVal = Number(value);
+        const maxStars = config.maxStars || config.max || 5;
+        if (numVal > maxStars) {
+          return `Rating cannot exceed ${maxStars} stars.`;
+        }
+        break;
+      }
+
+      case "checkbox": {
+        if (config.mustBeChecked && value !== true) {
+          return "You must accept/check this field to continue.";
+        }
+        break;
+      }
+
+      case "multi_select": {
+        if (Array.isArray(value)) {
+          if (config.minChoices !== undefined && config.minChoices !== null && value.length < config.minChoices) {
+            return `Please select at least ${config.minChoices} options.`;
+          }
+          if (config.maxChoices !== undefined && config.maxChoices !== null && value.length > config.maxChoices) {
+            return `Please select at most ${config.maxChoices} options.`;
+          }
+        }
+        break;
+      }
+
+      case "date": {
+        const dateStr = String(value);
+        const parsedDate = Date.parse(dateStr);
+        if (isNaN(parsedDate)) {
+          return "Please select a valid date.";
+        }
+        if (config.minDate !== undefined && config.minDate !== null && config.minDate !== "" && parsedDate < Date.parse(config.minDate)) {
+          return `Date cannot be earlier than ${config.minDate}.`;
+        }
+        if (config.maxDate !== undefined && config.maxDate !== null && config.maxDate !== "" && parsedDate > Date.parse(config.maxDate)) {
+          return `Date cannot be later than ${config.maxDate}.`;
+        }
+        break;
+      }
     }
   }
 
