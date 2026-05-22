@@ -1124,6 +1124,97 @@ class FormService {
           break;
         }
 
+        case "contact_info": {
+          if (typeof val !== "object" || val === null) {
+            throw new Error(`Answer for "${field.label}" must be a contact info object.`);
+          }
+          const contact = val as Record<string, any>;
+          if (!contact.name || typeof contact.name !== "string" || contact.name.trim() === "") {
+            throw new Error(`Name is required in contact info for "${field.label}".`);
+          }
+          if (config.requirePhone && (!contact.phone || typeof contact.phone !== "string" || contact.phone.trim() === "")) {
+            throw new Error(`Phone number is required in contact info for "${field.label}".`);
+          }
+          if (config.requireCompany && (!contact.company || typeof contact.company !== "string" || contact.company.trim() === "")) {
+            throw new Error(`Company is required in contact info for "${field.label}".`);
+          }
+          preparedAnswers.push({ fieldId: field.id, value: { value: val } });
+          break;
+        }
+
+        case "address": {
+          if (typeof val !== "object" || val === null) {
+            throw new Error(`Answer for "${field.label}" must be an address object.`);
+          }
+          const addr = val as Record<string, any>;
+          if (!addr.street || typeof addr.street !== "string" || addr.street.trim() === "") {
+            throw new Error(`Street address is required for "${field.label}".`);
+          }
+          if (!addr.city || typeof addr.city !== "string" || addr.city.trim() === "") {
+            throw new Error(`City is required for "${field.label}".`);
+          }
+          if (config.requireZip && (!addr.zip || typeof addr.zip !== "string" || addr.zip.trim() === "")) {
+            throw new Error(`Zip/Postal code is required for "${field.label}".`);
+          }
+          if (config.requireCountry && (!addr.country || typeof addr.country !== "string" || addr.country.trim() === "")) {
+            throw new Error(`Country is required for "${field.label}".`);
+          }
+          preparedAnswers.push({ fieldId: field.id, value: { value: val } });
+          break;
+        }
+
+        case "website": {
+          if (typeof val !== "string") {
+            throw new Error(`Answer for "${field.label}" must be a website URL string.`);
+          }
+          const isUrl = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(val);
+          if (!isUrl) {
+            throw new Error(`Answer for "${field.label}" must be a valid website URL.`);
+          }
+          if (config.requireSecure && !val.startsWith("https://")) {
+            throw new Error(`Website URL for "${field.label}" must be secure (https://).`);
+          }
+          preparedAnswers.push({ fieldId: field.id, value: { value: val } });
+          break;
+        }
+
+        case "dropdown": {
+          if (typeof val !== "string") {
+            throw new Error(`Answer for "${field.label}" must be a dropdown selection.`);
+          }
+          const options = config.options || [];
+          if (!options.includes(val)) {
+            throw new Error(`Selected option for "${field.label}" is invalid.`);
+          }
+          preparedAnswers.push({ fieldId: field.id, value: { value: val } });
+          break;
+        }
+
+        case "yes_no": {
+          if (typeof val !== "boolean") {
+            throw new Error(`Answer for "${field.label}" must be a Yes/No (boolean) choice.`);
+          }
+          preparedAnswers.push({ fieldId: field.id, value: { value: val } });
+          break;
+        }
+
+        case "ranking": {
+          if (!Array.isArray(val)) {
+            throw new Error(`Answer for "${field.label}" must be an ordered list of ranked items.`);
+          }
+          const options = config.options || [];
+          for (const item of val) {
+            if (typeof item !== "string" || !options.includes(item)) {
+              throw new Error(`Invalid ranked choice "${item}" for "${field.label}".`);
+            }
+          }
+          if (config.mustRankAll && val.length !== options.length) {
+            throw new Error(`You must rank all ${options.length} choices for "${field.label}".`);
+          }
+          preparedAnswers.push({ fieldId: field.id, value: { value: val } });
+          break;
+        }
+
         default: {
           throw new Error(`Unsupported field type: ${field.type}`);
         }

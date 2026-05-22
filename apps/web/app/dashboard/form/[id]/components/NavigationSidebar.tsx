@@ -10,6 +10,11 @@ import {
   CheckSquare,
   Star,
   Calendar,
+  User,
+  MapPin,
+  Globe,
+  HelpCircle,
+  Sliders,
 } from "lucide-react";
 
 export function NavigationSidebar({ 
@@ -67,6 +72,12 @@ export function NavigationSidebar({
                       {field.type === 'checkbox' && <CheckSquare className="h-3 w-3" />}
                       {field.type === 'rating' && <Star className="h-3 w-3" />}
                       {field.type === 'date' && <Calendar className="h-3 w-3" />}
+                      {field.type === 'contact_info' && <User className="h-3 w-3" />}
+                      {field.type === 'address' && <MapPin className="h-3 w-3" />}
+                      {field.type === 'website' && <Globe className="h-3 w-3" />}
+                      {field.type === 'dropdown' && <ChevronDown className="h-3 w-3" />}
+                      {field.type === 'yes_no' && <HelpCircle className="h-3 w-3" />}
+                      {field.type === 'ranking' && <Sliders className="h-3 w-3" />}
                     </span>
                     <span className="text-xs font-semibold truncate max-w-[130px] dark:text-neutral-250 text-neutral-750">
                       {field.label || "Untitled field"}

@@ -192,6 +192,87 @@ export function validateField(
         }
         break;
       }
+
+      case "contact_info": {
+        if (typeof value !== "object" || value === null) {
+          return "Please enter your contact information.";
+        }
+        const contact = value as Record<string, any>;
+        if (!contact.name || typeof contact.name !== "string" || contact.name.trim() === "") {
+          return "Name is required.";
+        }
+        if (config.requirePhone && (!contact.phone || typeof contact.phone !== "string" || contact.phone.trim() === "")) {
+          return "Phone number is required.";
+        }
+        if (config.requireCompany && (!contact.company || typeof contact.company !== "string" || contact.company.trim() === "")) {
+          return "Company name is required.";
+        }
+        break;
+      }
+
+      case "address": {
+        if (typeof value !== "object" || value === null) {
+          return "Please enter your address.";
+        }
+        const addr = value as Record<string, any>;
+        if (!addr.street || typeof addr.street !== "string" || addr.street.trim() === "") {
+          return "Street address is required.";
+        }
+        if (!addr.city || typeof addr.city !== "string" || addr.city.trim() === "") {
+          return "City is required.";
+        }
+        if (config.requireZip && (!addr.zip || typeof addr.zip !== "string" || addr.zip.trim() === "")) {
+          return "Zip/Postal code is required.";
+        }
+        if (config.requireCountry && (!addr.country || typeof addr.country !== "string" || addr.country.trim() === "")) {
+          return "Country is required.";
+        }
+        break;
+      }
+
+      case "website": {
+        const strVal = String(value);
+        const isUrl = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(strVal);
+        if (!isUrl) {
+          return "Please enter a valid website URL.";
+        }
+        if (config.requireSecure && !strVal.startsWith("https://")) {
+          return "Website URL must be secure (https://).";
+        }
+        break;
+      }
+
+      case "dropdown": {
+        const strVal = String(value);
+        const options = config.options || [];
+        if (!options.includes(strVal)) {
+          return "Please make a valid selection from the dropdown.";
+        }
+        break;
+      }
+
+      case "yes_no": {
+        if (typeof value !== "boolean") {
+          return "Please make a selection (Yes or No).";
+        }
+        break;
+      }
+
+      case "ranking": {
+        if (!Array.isArray(value)) {
+          return "Please rank the options.";
+        }
+        const options = config.options || [];
+        for (const item of value) {
+          if (typeof item !== "string" || !options.includes(item)) {
+            return "Invalid ranked choice.";
+          }
+        }
+        if (config.mustRankAll && value.length !== options.length) {
+          return `You must rank all ${options.length} options.`;
+        }
+        break;
+      }
     }
   }
 

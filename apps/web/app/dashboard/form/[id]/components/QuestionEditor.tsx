@@ -16,6 +16,9 @@ import {
   FileText,
   ListIcon,
   CheckSquare,
+  Globe,
+  GripVertical,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -83,7 +86,13 @@ export function QuestionEditor({
                 { id: 'single_select', name: 'Multiple Choice' },
                 { id: 'multi_select', name: 'Checkbox Options' },
                 { id: 'rating', name: 'Rating Star Scale' },
-                { id: 'date', name: 'Date Field' }
+                { id: 'date', name: 'Date Field' },
+                { id: 'contact_info', name: 'Contact Info' },
+                { id: 'address', name: 'Address' },
+                { id: 'website', name: 'Website' },
+                { id: 'dropdown', name: 'Dropdown Selection' },
+                { id: 'yes_no', name: 'Yes/No buttons' },
+                { id: 'ranking', name: 'Ranking list' }
               ].map((element) => (
                 <button
                   key={element.id}
@@ -196,7 +205,7 @@ export function QuestionEditor({
             </div>
 
             {/* Editable Choices list (Inputs positioned right after Description) */}
-            {(activeField?.type === 'single_select' || activeField?.type === 'multi_select') && (
+            {(activeField?.type === 'single_select' || activeField?.type === 'multi_select' || activeField?.type === 'dropdown' || activeField?.type === 'ranking') && (
               <div className="pl-10 space-y-3 pt-4 border-t border-dashed mt-4 animate-fadeIn">
                 <span className="text-[10px] font-bold text-neutral-450 uppercase tracking-wider block">Edit Choices</span>
                 <div className="space-y-2">
@@ -282,6 +291,31 @@ export function QuestionEditor({
               </div>
             )}
 
+            {/* Ranking list Drag & Drop visual preview */}
+            {activeField?.type === 'ranking' && (
+              <div className="pl-10 space-y-3 pt-2">
+                {localChoices.map((choice, cIdx) => (
+                  <div key={cIdx} className="flex items-center gap-3 animate-fadeIn max-w-sm bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 px-3 py-2 rounded-xl">
+                    <GripVertical className="h-4 w-4 text-neutral-400 cursor-grab active:cursor-grabbing" />
+                    <div className="h-5 w-5 rounded bg-primary/10 flex items-center justify-center text-[10px] font-extrabold text-primary border border-primary/20">
+                      {cIdx + 1}
+                    </div>
+                    <span className="text-xs font-bold dark:text-neutral-250 text-neutral-750">{choice}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Dropdown Selection visual preview */}
+            {activeField?.type === 'dropdown' && (
+              <div className="pl-10 pt-3">
+                <div className="w-full max-w-xs border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 rounded-xl p-3 text-xs text-neutral-500 flex items-center justify-between font-semibold">
+                  <span>Select an option...</span>
+                  <ChevronDown className="h-4 w-4 text-neutral-400" />
+                </div>
+              </div>
+            )}
+
             {/* Stars Rating Visual representation */}
             {activeField?.type === 'rating' && (
               <div className="pl-10 pt-3 flex items-center gap-2">
@@ -324,12 +358,38 @@ export function QuestionEditor({
                 </div>
               </div>
             )}
-            {activeField?.type === 'date' && (
-              <div className="pl-10 pt-3">
-                <div className="w-full max-w-xs border border-neutral-250 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/50 rounded-lg p-2.5 text-xs text-neutral-400 flex items-center justify-between italic">
-                  <span>Select a date...</span>
-                  <Calendar className="h-4 w-4" />
+            {activeField?.type === 'contact_info' && (
+              <div className="pl-10 pt-3 space-y-2 max-w-md">
+                <div className="border-b border-neutral-350 dark:border-neutral-700 text-xs text-neutral-400 py-1.5 italic">Name...</div>
+                <div className="border-b border-neutral-350 dark:border-neutral-700 text-xs text-neutral-400 py-1.5 italic">Phone...</div>
+                <div className="border-b border-neutral-350 dark:border-neutral-700 text-xs text-neutral-400 py-1.5 italic">Company...</div>
+              </div>
+            )}
+            {activeField?.type === 'address' && (
+              <div className="pl-10 pt-3 space-y-2 max-w-md">
+                <div className="border-b border-neutral-350 dark:border-neutral-700 text-xs text-neutral-400 py-1.5 italic">Street address...</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="border-b border-neutral-350 dark:border-neutral-700 text-xs text-neutral-400 py-1.5 italic">City...</div>
+                  <div className="border-b border-neutral-350 dark:border-neutral-700 text-xs text-neutral-400 py-1.5 italic">State...</div>
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="border-b border-neutral-350 dark:border-neutral-700 text-xs text-neutral-400 py-1.5 italic">Zip/Postal code...</div>
+                  <div className="border-b border-neutral-350 dark:border-neutral-700 text-xs text-neutral-400 py-1.5 italic">Country...</div>
+                </div>
+              </div>
+            )}
+            {activeField?.type === 'website' && (
+              <div className="pl-10 pt-3">
+                <div className="w-full max-w-sm border-b border-neutral-350 dark:border-neutral-700 text-xs text-neutral-400 py-2.5 flex items-center gap-2 italic">
+                  <Globe className="h-4 w-4 text-neutral-400" />
+                  <span>https://example.com</span>
+                </div>
+              </div>
+            )}
+            {activeField?.type === 'yes_no' && (
+              <div className="pl-10 pt-3 flex gap-3">
+                <button className="px-5 py-2 bg-primary/10 border border-primary/20 rounded-xl text-xs font-bold text-primary">Yes</button>
+                <button className="px-5 py-2 bg-neutral-100 dark:bg-neutral-800 border dark:border-neutral-700 rounded-xl text-xs font-bold dark:text-neutral-350">No</button>
               </div>
             )}
 

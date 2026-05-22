@@ -302,7 +302,7 @@ export default function FormBuilderPage() {
         type,
         required: false,
         validation:
-          type === 'single_select' || type === 'multi_select' ? { choices: ['Choice A', 'Choice B'] } : {},
+          type === 'single_select' || type === 'multi_select' || type === 'dropdown' || type === 'ranking' ? { choices: ['Choice A', 'Choice B'] } : {},
       });
       toast.success('New question added!');
       if (res?.field?.id) {

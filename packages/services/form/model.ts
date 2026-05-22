@@ -155,7 +155,13 @@ export const fieldTypeSchema = z.enum([
   "multi_select",
   "checkbox",
   "rating",
-  "date"
+  "date",
+  "contact_info",
+  "address",
+  "website",
+  "dropdown",
+  "yes_no",
+  "ranking",
 ]);
 
 export const addFormFieldInput = z.object({

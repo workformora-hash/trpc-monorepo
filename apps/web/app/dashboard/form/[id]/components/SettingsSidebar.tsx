@@ -53,6 +53,15 @@ export function SettingsSidebar({
   const [localMinChoices, setLocalMinChoices] = useState<number | "">(activeValidation.minChoices !== undefined ? activeValidation.minChoices : "");
   const [localMaxChoices, setLocalMaxChoices] = useState<number | "">(activeValidation.maxChoices !== undefined ? activeValidation.maxChoices : "");
 
+  // Local optimistic validation rule states (Brand New 6 Field Types)
+  const [localRequirePhone, setLocalRequirePhone] = useState(!!activeValidation.requirePhone);
+  const [localRequireCompany, setLocalRequireCompany] = useState(!!activeValidation.requireCompany);
+  const [localRequireZip, setLocalRequireZip] = useState(!!activeValidation.requireZip);
+  const [localRequireCountry, setLocalRequireCountry] = useState(!!activeValidation.requireCountry);
+  const [localRequireSecure, setLocalRequireSecure] = useState(!!activeValidation.requireSecure);
+  const [localAlphabetical, setLocalAlphabetical] = useState(!!activeValidation.alphabetical);
+  const [localMustRankAll, setLocalMustRankAll] = useState(!!activeValidation.mustRankAll);
+
   // Synchronize local states when the active field or validation updates from the database
   useEffect(() => {
     setLocalRequired(activeField.required);
@@ -78,6 +87,14 @@ export function SettingsSidebar({
     setLocalMustBeChecked(!!activeValidation.mustBeChecked);
     setLocalMinChoices(activeValidation.minChoices !== undefined ? activeValidation.minChoices : "");
     setLocalMaxChoices(activeValidation.maxChoices !== undefined ? activeValidation.maxChoices : "");
+
+    setLocalRequirePhone(!!activeValidation.requirePhone);
+    setLocalRequireCompany(!!activeValidation.requireCompany);
+    setLocalRequireZip(!!activeValidation.requireZip);
+    setLocalRequireCountry(!!activeValidation.requireCountry);
+    setLocalRequireSecure(!!activeValidation.requireSecure);
+    setLocalAlphabetical(!!activeValidation.alphabetical);
+    setLocalMustRankAll(!!activeValidation.mustRankAll);
   }, [
     activeField,
     activeField.required,
@@ -102,6 +119,13 @@ export function SettingsSidebar({
     activeValidation.mustBeChecked,
     activeValidation.minChoices,
     activeValidation.maxChoices,
+    activeValidation.requirePhone,
+    activeValidation.requireCompany,
+    activeValidation.requireZip,
+    activeValidation.requireCountry,
+    activeValidation.requireSecure,
+    activeValidation.alphabetical,
+    activeValidation.mustRankAll,
   ]);
 
   const handleToggleRequired = () => {
@@ -335,7 +359,75 @@ export function SettingsSidebar({
     });
   };
 
-  const isChoiceField = activeField.type === "single_select" || activeField.type === "multi_select";
+  // 6 New Advanced Field Types Toggle Handlers
+  const handleToggleRequirePhone = () => {
+    const nextVal = !localRequirePhone;
+    setLocalRequirePhone(nextVal);
+    editFormFieldMutation.mutate({
+      id: activeField.id,
+      validation: { ...activeValidation, requirePhone: nextVal },
+    });
+  };
+
+  const handleToggleRequireCompany = () => {
+    const nextVal = !localRequireCompany;
+    setLocalRequireCompany(nextVal);
+    editFormFieldMutation.mutate({
+      id: activeField.id,
+      validation: { ...activeValidation, requireCompany: nextVal },
+    });
+  };
+
+  const handleToggleRequireZip = () => {
+    const nextVal = !localRequireZip;
+    setLocalRequireZip(nextVal);
+    editFormFieldMutation.mutate({
+      id: activeField.id,
+      validation: { ...activeValidation, requireZip: nextVal },
+    });
+  };
+
+  const handleToggleRequireCountry = () => {
+    const nextVal = !localRequireCountry;
+    setLocalRequireCountry(nextVal);
+    editFormFieldMutation.mutate({
+      id: activeField.id,
+      validation: { ...activeValidation, requireCountry: nextVal },
+    });
+  };
+
+  const handleToggleRequireSecure = () => {
+    const nextVal = !localRequireSecure;
+    setLocalRequireSecure(nextVal);
+    editFormFieldMutation.mutate({
+      id: activeField.id,
+      validation: { ...activeValidation, requireSecure: nextVal },
+    });
+  };
+
+  const handleToggleAlphabetical = () => {
+    const nextVal = !localAlphabetical;
+    setLocalAlphabetical(nextVal);
+    editFormFieldMutation.mutate({
+      id: activeField.id,
+      validation: { ...activeValidation, alphabetical: nextVal },
+    });
+  };
+
+  const handleToggleMustRankAll = () => {
+    const nextVal = !localMustRankAll;
+    setLocalMustRankAll(nextVal);
+    editFormFieldMutation.mutate({
+      id: activeField.id,
+      validation: { ...activeValidation, mustRankAll: nextVal },
+    });
+  };
+
+  const isChoiceField =
+    activeField.type === "single_select" ||
+    activeField.type === "multi_select" ||
+    activeField.type === "dropdown" ||
+    activeField.type === "ranking";
   
   const hasValidationRules =
     activeField.type === "short_text" ||
@@ -345,7 +437,13 @@ export function SettingsSidebar({
     activeField.type === "rating" ||
     activeField.type === "checkbox" ||
     activeField.type === "multi_select" ||
-    activeField.type === "date";
+    activeField.type === "date" ||
+    activeField.type === "contact_info" ||
+    activeField.type === "address" ||
+    activeField.type === "website" ||
+    activeField.type === "dropdown" ||
+    activeField.type === "yes_no" ||
+    activeField.type === "ranking";
 
   return (
     <aside className="w-80 border-l border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 space-y-6 overflow-y-auto font-sans select-none animate-fadeIn">
@@ -383,6 +481,12 @@ export function SettingsSidebar({
             <option value="multi_select">Checkbox Options</option>
             <option value="rating">Rating</option>
             <option value="date">Date</option>
+            <option value="contact_info">Contact Info</option>
+            <option value="address">Address</option>
+            <option value="website">Website</option>
+            <option value="dropdown">Dropdown Selection</option>
+            <option value="yes_no">Yes/No buttons</option>
+            <option value="ranking">Ranking list</option>
           </select>
         </div>
       </div>
@@ -410,18 +514,20 @@ export function SettingsSidebar({
           {isChoiceField && (
             <>
               {/* MULTIPLE SELECTION SWITCH */}
-              <div className="flex items-center justify-between animate-fadeIn">
-                <div className="text-left">
-                  <span className="text-xs font-bold dark:text-neutral-200 text-neutral-755 block">Multiple selection</span>
-                  <span className="text-[9px] text-neutral-400">Allow selecting multiple options</span>
+              {(activeField.type === "single_select" || activeField.type === "multi_select") && (
+                <div className="flex items-center justify-between animate-fadeIn">
+                  <div className="text-left">
+                    <span className="text-xs font-bold dark:text-neutral-200 text-neutral-755 block">Multiple selection</span>
+                    <span className="text-[9px] text-neutral-400">Allow selecting multiple options</span>
+                  </div>
+                  <button
+                    onClick={handleToggleMultiple}
+                    className="p-1 text-primary focus:outline-none transition-all active:scale-95"
+                  >
+                    {localIsMultiple ? <ToggleRight className="h-8 w-8 text-primary" /> : <ToggleLeft className="h-8 w-8 text-neutral-400" />}
+                  </button>
                 </div>
-                <button
-                  onClick={handleToggleMultiple}
-                  className="p-1 text-primary focus:outline-none transition-all active:scale-95"
-                >
-                  {localIsMultiple ? <ToggleRight className="h-8 w-8 text-primary" /> : <ToggleLeft className="h-8 w-8 text-neutral-400" />}
-                </button>
-              </div>
+              )}
 
               {/* RANDOMIZE */}
               <div className="flex items-center justify-between animate-fadeIn">
@@ -438,18 +544,20 @@ export function SettingsSidebar({
               </div>
 
               {/* OTHER OPTION */}
-              <div className="flex items-center justify-between animate-fadeIn">
-                <div className="text-left">
-                  <span className="text-xs font-bold dark:text-neutral-200 text-neutral-755 block">&quot;Other&quot; option</span>
-                  <span className="text-[9px] text-neutral-400">Include customizable input</span>
+              {(activeField.type === "single_select" || activeField.type === "multi_select") && (
+                <div className="flex items-center justify-between animate-fadeIn">
+                  <div className="text-left">
+                    <span className="text-xs font-bold dark:text-neutral-200 text-neutral-755 block">&quot;Other&quot; option</span>
+                    <span className="text-[9px] text-neutral-400">Include customizable input</span>
+                  </div>
+                  <button
+                    onClick={handleToggleAllowOther}
+                    className="p-1 text-primary focus:outline-none transition-all active:scale-95"
+                  >
+                    {localAllowOther ? <ToggleRight className="h-8 w-8 text-primary" /> : <ToggleLeft className="h-8 w-8 text-neutral-400" />}
+                  </button>
                 </div>
-                <button
-                  onClick={handleToggleAllowOther}
-                  className="p-1 text-primary focus:outline-none transition-all active:scale-95"
-                >
-                  {localAllowOther ? <ToggleRight className="h-8 w-8 text-primary" /> : <ToggleLeft className="h-8 w-8 text-neutral-400" />}
-                </button>
-              </div>
+              )}
             </>
           )}
 
@@ -488,7 +596,7 @@ export function SettingsSidebar({
                       value={localMinLength}
                       onChange={(e) => setLocalMinLength(e.target.value === "" ? "" : parseInt(e.target.value, 10))}
                       onBlur={(e) => handleMinLengthBlur(e.target.value)}
-                      className="w-full bg-white dark:bg-neutral-955 border border-neutral-250 dark:border-neutral-850 rounded-lg px-2.5 py-1.5 text-xs font-semibold dark:text-neutral-100 text-neutral-750 focus:outline-none focus:border-primary"
+                      className="w-full bg-white dark:bg-neutral-955 border border-neutral-250 dark:border-neutral-850 rounded-lg px-2.5 py-1.5 text-xs font-semibold dark:text-neutral-100 text-neutral-755 focus:outline-none focus:border-primary"
                       placeholder="None"
                     />
                   </div>
@@ -500,7 +608,7 @@ export function SettingsSidebar({
                       value={localMaxLength}
                       onChange={(e) => setLocalMaxLength(e.target.value === "" ? "" : parseInt(e.target.value, 10))}
                       onBlur={(e) => handleMaxLengthBlur(e.target.value)}
-                      className="w-full bg-white dark:bg-neutral-955 border border-neutral-250 dark:border-neutral-855 rounded-lg px-2.5 py-1.5 text-xs font-semibold dark:text-neutral-100 text-neutral-750 focus:outline-none focus:border-primary"
+                      className="w-full bg-white dark:bg-neutral-955 border border-neutral-250 dark:border-neutral-855 rounded-lg px-2.5 py-1.5 text-xs font-semibold dark:text-neutral-100 text-neutral-755 focus:outline-none focus:border-primary"
                       placeholder="None"
                     />
                   </div>
@@ -512,7 +620,7 @@ export function SettingsSidebar({
                   <select
                     value={localFormat}
                     onChange={(e) => handleFormatChange(e.target.value)}
-                    className="w-full bg-white dark:bg-neutral-955 border border-neutral-250 dark:border-neutral-800 rounded-lg px-3 py-1.5 text-xs font-semibold dark:text-neutral-100 text-neutral-750 focus:outline-none"
+                    className="w-full bg-white dark:bg-neutral-955 border border-neutral-250 dark:border-neutral-800 rounded-lg px-3 py-1.5 text-xs font-semibold dark:text-neutral-100 text-neutral-755 focus:outline-none"
                   >
                     <option value="any">Any text format</option>
                     <option value="url">Valid Web URL (HTTP/HTTPS)</option>
@@ -522,7 +630,7 @@ export function SettingsSidebar({
                 </div>
 
                 {/* Regex Pattern Matcher */}
-                <div className="space-y-3 p-3 bg-neutral-50 dark:bg-neutral-950/20 border border-neutral-150 dark:border-neutral-800 rounded-xl space-y-2">
+                <div className="space-y-3 p-3 bg-neutral-50 dark:bg-neutral-950/20 border border-neutral-150 dark:border-neutral-800 rounded-xl">
                   <span className="text-[10px] font-bold dark:text-neutral-300 text-neutral-700 block">Advanced Regex Match</span>
                   <div className="space-y-1">
                     <label className="text-[9px] font-semibold text-neutral-400 block">Regex Expression Pattern</label>
@@ -532,7 +640,7 @@ export function SettingsSidebar({
                       onChange={(e) => setLocalPattern(e.target.value)}
                       onBlur={(e) => handlePatternBlur(e.target.value)}
                       placeholder="e.g. ^[0-9]{5}$"
-                      className="w-full bg-white dark:bg-neutral-955 border border-neutral-200 dark:border-neutral-800 rounded-lg px-2 py-1 text-xs dark:text-neutral-200 text-neutral-750 focus:outline-none focus:border-primary"
+                      className="w-full bg-white dark:bg-neutral-955 border border-neutral-205 dark:border-neutral-800 rounded-lg px-2 py-1 text-xs dark:text-neutral-200 text-neutral-750 focus:outline-none focus:border-primary"
                     />
                   </div>
                   <div className="space-y-1">
@@ -543,7 +651,7 @@ export function SettingsSidebar({
                       onChange={(e) => setLocalPatternMessage(e.target.value)}
                       onBlur={(e) => handlePatternMessageBlur(e.target.value)}
                       placeholder="Must be a valid zip code."
-                      className="w-full bg-white dark:bg-neutral-955 border border-neutral-200 dark:border-neutral-800 rounded-lg px-2 py-1 text-xs dark:text-neutral-200 text-neutral-755 focus:outline-none focus:border-primary"
+                      className="w-full bg-white dark:bg-neutral-955 border border-neutral-205 dark:border-neutral-800 rounded-lg px-2 py-1 text-xs dark:text-neutral-200 text-neutral-755 focus:outline-none focus:border-primary"
                     />
                   </div>
                 </div>
@@ -699,7 +807,7 @@ export function SettingsSidebar({
                     value={localMinDate}
                     onChange={(e) => setLocalMinDate(e.target.value)}
                     onBlur={(e) => handleMinDateBlur(e.target.value)}
-                    className="w-full bg-white dark:bg-neutral-955 border border-neutral-250 dark:border-neutral-850 rounded-lg px-3 py-1.5 text-xs font-semibold dark:text-neutral-100 text-neutral-750 focus:outline-none focus:border-primary"
+                    className="w-full bg-white dark:bg-neutral-955 border border-neutral-250 dark:border-neutral-850 rounded-lg px-3 py-1.5 text-xs font-semibold dark:text-neutral-100 text-neutral-755 focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div className="space-y-1">
@@ -709,11 +817,120 @@ export function SettingsSidebar({
                     value={localMaxDate}
                     onChange={(e) => setLocalMaxDate(e.target.value)}
                     onBlur={(e) => handleMaxDateBlur(e.target.value)}
-                    className="w-full bg-white dark:bg-neutral-955 border border-neutral-250 dark:border-neutral-855 rounded-lg px-3 py-1.5 text-xs font-semibold dark:text-neutral-100 text-neutral-750 focus:outline-none focus:border-primary"
+                    className="w-full bg-white dark:bg-neutral-955 border border-neutral-250 dark:border-neutral-855 rounded-lg px-3 py-1.5 text-xs font-semibold dark:text-neutral-100 text-neutral-755 focus:outline-none focus:border-primary"
                   />
                 </div>
               </div>
             )}
+
+            {/* Contact Info Validations */}
+            {activeField.type === "contact_info" && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-955/20 border dark:border-neutral-800 border-neutral-200 rounded-xl">
+                  <div className="space-y-0.5 text-left pr-3">
+                    <span className="text-xs font-bold dark:text-neutral-200 text-neutral-750 block">Require Phone</span>
+                    <span className="text-[9px] text-neutral-400 block leading-tight">Must provide a contact phone number</span>
+                  </div>
+                  <button
+                    onClick={handleToggleRequirePhone}
+                    className="focus:outline-none transition-all active:scale-95"
+                  >
+                    {localRequirePhone ? <ToggleRight className="h-8 w-8 text-primary" /> : <ToggleLeft className="h-8 w-8 text-neutral-400" />}
+                  </button>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-955/20 border dark:border-neutral-800 border-neutral-200 rounded-xl">
+                  <div className="space-y-0.5 text-left pr-3">
+                    <span className="text-xs font-bold dark:text-neutral-200 text-neutral-750 block">Require Company</span>
+                    <span className="text-[9px] text-neutral-400 block leading-tight">Must provide a company name</span>
+                  </div>
+                  <button
+                    onClick={handleToggleRequireCompany}
+                    className="focus:outline-none transition-all active:scale-95"
+                  >
+                    {localRequireCompany ? <ToggleRight className="h-8 w-8 text-primary" /> : <ToggleLeft className="h-8 w-8 text-neutral-400" />}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Address Validations */}
+            {activeField.type === "address" && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-955/20 border dark:border-neutral-800 border-neutral-200 rounded-xl">
+                  <div className="space-y-0.5 text-left pr-3">
+                    <span className="text-xs font-bold dark:text-neutral-200 text-neutral-750 block">Require Zip/Postal</span>
+                    <span className="text-[9px] text-neutral-400 block leading-tight">Zip/Postal code is strictly required</span>
+                  </div>
+                  <button
+                    onClick={handleToggleRequireZip}
+                    className="focus:outline-none transition-all active:scale-95"
+                  >
+                    {localRequireZip ? <ToggleRight className="h-8 w-8 text-primary" /> : <ToggleLeft className="h-8 w-8 text-neutral-400" />}
+                  </button>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-955/20 border dark:border-neutral-800 border-neutral-200 rounded-xl">
+                  <div className="space-y-0.5 text-left pr-3">
+                    <span className="text-xs font-bold dark:text-neutral-200 text-neutral-750 block">Require Country</span>
+                    <span className="text-[9px] text-neutral-400 block leading-tight">Country selection is strictly required</span>
+                  </div>
+                  <button
+                    onClick={handleToggleRequireCountry}
+                    className="focus:outline-none transition-all active:scale-95"
+                  >
+                    {localRequireCountry ? <ToggleRight className="h-8 w-8 text-primary" /> : <ToggleLeft className="h-8 w-8 text-neutral-400" />}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Website Validations */}
+            {activeField.type === "website" && (
+              <div className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-955/20 border dark:border-neutral-800 border-neutral-200 rounded-xl">
+                <div className="space-y-0.5 text-left pr-3">
+                  <span className="text-xs font-bold dark:text-neutral-200 text-neutral-750 block">Secure URLs Only</span>
+                  <span className="text-[9px] text-neutral-400 block leading-tight">Restrict inputs to HTTPS websites only</span>
+                </div>
+                <button
+                  onClick={handleToggleRequireSecure}
+                  className="focus:outline-none transition-all active:scale-95"
+                >
+                  {localRequireSecure ? <ToggleRight className="h-8 w-8 text-primary" /> : <ToggleLeft className="h-8 w-8 text-neutral-400" />}
+                </button>
+              </div>
+            )}
+
+            {/* Dropdown Validations */}
+            {activeField.type === "dropdown" && (
+              <div className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-955/20 border dark:border-neutral-800 border-neutral-200 rounded-xl">
+                <div className="space-y-0.5 text-left pr-3">
+                  <span className="text-xs font-bold dark:text-neutral-200 text-neutral-750 block">Alphabetical Order</span>
+                  <span className="text-[9px] text-neutral-400 block leading-tight">Sort choice elements alphabetically in UI</span>
+                </div>
+                <button
+                  onClick={handleToggleAlphabetical}
+                  className="focus:outline-none transition-all active:scale-95"
+                >
+                  {localAlphabetical ? <ToggleRight className="h-8 w-8 text-primary" /> : <ToggleLeft className="h-8 w-8 text-neutral-400" />}
+                </button>
+              </div>
+            )}
+
+            {/* Ranking Validations */}
+            {activeField.type === "ranking" && (
+              <div className="flex items-center justify-between p-3 bg-neutral-50 dark:bg-neutral-955/20 border dark:border-neutral-800 border-neutral-200 rounded-xl">
+                <div className="space-y-0.5 text-left pr-3">
+                  <span className="text-xs font-bold dark:text-neutral-200 text-neutral-750 block">Must Rank All</span>
+                  <span className="text-[9px] text-neutral-400 block leading-tight">Force ordering of all elements in list</span>
+                </div>
+                <button
+                  onClick={handleToggleMustRankAll}
+                  className="focus:outline-none transition-all active:scale-95"
+                >
+                  {localMustRankAll ? <ToggleRight className="h-8 w-8 text-primary" /> : <ToggleLeft className="h-8 w-8 text-neutral-400" />}
+                </button>
+              </div>
+            )}
+
           </div>
         </div>
       )}
