@@ -173,6 +173,7 @@ export const getFormBySlugPublicOutputModel = z.object({
     updatedAt: z.date(),
   }),
   fields: z.array(formFieldModel),
+  isPasswordProtected: z.boolean(),
 });
 
 export const getFormByIdCreatorInputModel = z.object({
