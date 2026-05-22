@@ -109,13 +109,13 @@ export const resetPasswordOutputModel = z.object({
     success: z.boolean()
 })
 
-export const logoutInputModel = z.void();
+export const logoutInputModel = z.object({}).optional();
 
 export const logoutOutputModel = z.object({
     success: z.boolean()
 })
 
-export const getCurrentUserInputModel = z.void();
+export const getCurrentUserInputModel = z.object({}).optional();
 
 export const getCurrentUserOutputModel = z.object({
     user: z.object({
@@ -126,7 +126,7 @@ export const getCurrentUserOutputModel = z.object({
     })
 }).nullable()
 
-export const getGoogleAuthUrlInputModel = z.void();
+export const getGoogleAuthUrlInputModel = z.object({}).optional();
 
 export const getGoogleAuthUrlOutputModel = z.object({
     provider: z.enum(["GOOGLE_OAUTH"]),
@@ -154,7 +154,7 @@ export const loginWithGoogleOutputModel = z.object({
     })
 });
 
-export const getActiveSessionsInputModel = z.void();
+export const getActiveSessionsInputModel = z.object({}).optional();
 
 export const getActiveSessionsOutputModel = z.object({
     sessions: z.array(
@@ -181,7 +181,7 @@ export const revokeSessionByIdOutputModel = z.object({
     success: z.boolean(),
 });
 
-export const refreshSessionInputModel = z.void();
+export const refreshSessionInputModel = z.object({}).optional();
 
 export const refreshSessionOutputModel = z.object({
     success: z.boolean(),
@@ -211,7 +211,7 @@ export const changePasswordOutputModel = z.object({
     success: z.boolean(),
 });
 
-export const deleteAccountInputModel = z.void();
+export const deleteAccountInputModel = z.object({}).optional();
 
 export const deleteAccountOutputModel = z.object({
     success: z.boolean(),

@@ -3,6 +3,9 @@
 import { useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import z from "zod"
 import { cn } from "~/lib/utils"
 import { Button } from "~/components/ui/button"
 import {
@@ -14,16 +17,35 @@ import {
 import { Input } from "~/components/ui/input"
 import { trpc } from "~/trpc/client"
 
+const forgotPasswordSchema = z.object({
+  email: z.string()
+    .email("Please provide a valid email address"),
+});
+
+type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
+
 export function ForgotPasswordForm({
   className,
   ...props
 }: React.ComponentProps<"form">) {
-  const [email, setEmail] = useState("")
   const [isSuccess, setIsSuccess] = useState(false)
+  const [registeredEmail, setRegisteredEmail] = useState("")
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ForgotPasswordFormValues>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: {
+      email: "",
+    },
+  });
 
   const forgotPasswordMutation = trpc.auth.forgotPassword.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       if (data.success) {
+        setRegisteredEmail(variables.email)
         setIsSuccess(true)
         toast.success("Reset link sent! Please check your email inbox.")
       } else {
@@ -35,13 +57,8 @@ export function ForgotPasswordForm({
     },
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email) {
-      toast.error("Please enter a valid email address.")
-      return
-    }
-    forgotPasswordMutation.mutate({ email })
+  const onSubmit = (values: ForgotPasswordFormValues) => {
+    forgotPasswordMutation.mutate({ email: values.email })
   }
 
   if (isSuccess) {
@@ -66,7 +83,7 @@ export function ForgotPasswordForm({
           </div>
           <h1 className="text-2xl font-bold">Check your email</h1>
           <p className="text-sm text-balance text-muted-foreground">
-            We have sent a secure password reset link to <strong className="text-foreground">{email}</strong>.
+            We have sent a secure password reset link to <strong className="text-foreground">{registeredEmail}</strong>.
           </p>
         </div>
         <div className="flex flex-col gap-2">
@@ -81,7 +98,7 @@ export function ForgotPasswordForm({
   return (
     <form
       className={cn("flex flex-col gap-6", className)}
-      onSubmit={handleSubmit}
+      onSubmit={handleSubmit(onSubmit)}
       {...props}
     >
       <FieldGroup>
@@ -97,11 +114,12 @@ export function ForgotPasswordForm({
             id="email"
             type="email"
             placeholder="m@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            {...register("email")}
             disabled={forgotPasswordMutation.isPending}
-            required
           />
+          {errors.email && (
+            <p className="text-xs text-destructive mt-1 font-medium">{errors.email.message}</p>
+          )}
         </Field>
         <Field>
           <Button type="submit" disabled={forgotPasswordMutation.isPending}>

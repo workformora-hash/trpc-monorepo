@@ -1,9 +1,12 @@
 "use client"
 
-import { useState, useEffect, useRef, Suspense } from "react"
+import { useEffect, useRef, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { toast } from "sonner"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import z from "zod"
 import { cn } from "~/lib/utils"
 import { Button } from "~/components/ui/button"
 import {
@@ -17,6 +20,15 @@ import { Input } from "~/components/ui/input"
 import { trpc } from "~/trpc/client"
 import { api } from "~/trpc/server"
 
+const loginSchema = z.object({
+  email: z.string()
+    .email("Please provide a valid email address"),
+  password: z.string()
+    .min(1, "Password is required"),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+
 function LoginFormContent({
   className,
   ...props
@@ -26,11 +38,19 @@ function LoginFormContent({
   const code = searchParams.get("code")
   const googleLoginTriggered = useRef(false)
 
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [isGoogleVerifying, setIsGoogleVerifying] = useState(!!code)
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
 
-  // 1. Google OAuth code exchange mutation
+  // Google OAuth code exchange mutation
   const loginWithGoogleMutation = trpc.auth.loginWithGoogle.useMutation({
     onSuccess: (data) => {
       if (data.success) {
@@ -38,14 +58,11 @@ function LoginFormContent({
         router.push("/")
         router.refresh()
       } else {
-        setIsGoogleVerifying(false)
         toast.error("Google authentication failed. Please try again.")
       }
     },
     onError: (error) => {
-      setIsGoogleVerifying(false)
       toast.error(error.message || "Failed to log in with Google.")
-      // Remove code param from URL without reloading
       const url = new URL(window.location.href)
       url.searchParams.delete("code")
       window.history.replaceState({}, "", url.toString())
@@ -64,7 +81,6 @@ function LoginFormContent({
     const loadingToast = toast.loading("Connecting to Google...")
     try {
       const data = await api.auth.getGoogleAuthUrl.query()
-      console.log("data", data)
       toast.dismiss(loadingToast)
       if (data?.authUrl) {
         window.location.href = data.authUrl
@@ -78,7 +94,7 @@ function LoginFormContent({
     }
   }
 
-  // 3. Credential Login mutation
+  // Credential Login mutation
   const loginMutation = trpc.auth.loginWithEmailAndPassword.useMutation({
     onSuccess: (data) => {
       if (data.success) {
@@ -92,17 +108,12 @@ function LoginFormContent({
     },
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email || !password) {
-      toast.error("Please fill in all required fields.")
-      return
-    }
-    loginMutation.mutate({ email, password })
+  const onSubmit = (values: LoginFormValues) => {
+    loginMutation.mutate({ email: values.email, password: values.password })
   }
 
   // Render Google loading state if verifying code
-  if (isGoogleVerifying) {
+  if (code) {
     return (
       <div className={cn("flex flex-col gap-6 items-center text-center py-8", className)}>
         <div className="size-10 animate-spin rounded-full border-4 border-primary border-t-transparent mb-2" />
@@ -117,7 +128,7 @@ function LoginFormContent({
   return (
     <form
       className={cn("flex flex-col gap-6", className)}
-      onSubmit={handleSubmit}
+      onSubmit={handleSubmit(onSubmit)}
       {...props}
     >
       <FieldGroup>
@@ -133,11 +144,12 @@ function LoginFormContent({
             id="email"
             type="email"
             placeholder="m@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            {...register("email")}
             disabled={loginMutation.isPending}
-            required
           />
+          {errors.email && (
+            <p className="text-xs text-destructive mt-1 font-medium">{errors.email.message}</p>
+          )}
         </Field>
         <Field>
           <div className="flex items-center">
@@ -152,11 +164,12 @@ function LoginFormContent({
           <Input
             id="password"
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            {...register("password")}
             disabled={loginMutation.isPending}
-            required
           />
+          {errors.password && (
+            <p className="text-xs text-destructive mt-1 font-medium">{errors.password.message}</p>
+          )}
         </Field>
         <Field>
           <Button type="submit" disabled={loginMutation.isPending}>

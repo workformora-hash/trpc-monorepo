@@ -200,7 +200,7 @@ export const getFormByIdCreatorOutputModel = z.object({
   fields: z.array(formFieldModel),
 });
 
-export const listFormsCreatorInputModel = z.void();
+export const listFormsCreatorInputModel = z.object({}).optional();
 
 export const listFormsCreatorOutputModel = z.object({
   forms: z.array(
@@ -581,7 +581,7 @@ export const unarchiveFormOutputModel = z.object({
   })
 });
 
-export const listFormTemplatesInputModel = z.void();
+export const listFormTemplatesInputModel = z.object({}).optional();
 
 export const listFormTemplatesOutputModel = z.array(
   z.object({

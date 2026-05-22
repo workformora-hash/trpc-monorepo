@@ -4,6 +4,9 @@ import { useState, useEffect, useRef, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { toast } from "sonner"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import z from "zod"
 import { cn } from "~/lib/utils"
 import { Button } from "~/components/ui/button"
 import {
@@ -14,6 +17,13 @@ import {
 } from "~/components/ui/field"
 import { Input } from "~/components/ui/input"
 import { trpc } from "~/trpc/client"
+
+const verifyEmailSchema = z.object({
+  email: z.string()
+    .email("Please provide a valid email address"),
+});
+
+type VerifyEmailFormValues = z.infer<typeof verifyEmailSchema>;
 
 function VerifyEmailFormContent({
   className,
@@ -27,9 +37,20 @@ function VerifyEmailFormContent({
     "idle" | "verifying" | "success" | "error"
   >(token ? "verifying" : "idle")
   
-  const [email, setEmail] = useState("")
+  const [registeredEmail, setRegisteredEmail] = useState("")
   const [isResendSuccess, setIsResendSuccess] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<VerifyEmailFormValues>({
+    resolver: zodResolver(verifyEmailSchema),
+    defaultValues: {
+      email: "",
+    },
+  });
 
   const verifyEmailMutation = trpc.auth.verifyEmail.useMutation({
     onSuccess: (data) => {
@@ -50,8 +71,9 @@ function VerifyEmailFormContent({
   })
 
   const resendEmailMutation = trpc.auth.resendVerificationEmail.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       if (data.success) {
+        setRegisteredEmail(variables.email)
         setIsResendSuccess(true)
         toast.success("Verification email resent! Please check your inbox.")
       } else {
@@ -70,16 +92,11 @@ function VerifyEmailFormContent({
     }
   }, [token])
 
-  const handleResend = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email) {
-      toast.error("Please enter a valid email address.")
-      return
-    }
-    resendEmailMutation.mutate({ email })
+  const onSubmit = (values: VerifyEmailFormValues) => {
+    resendEmailMutation.mutate({ email: values.email })
   }
 
-  // 1. Loading/Verifying state
+  // Loading/Verifying state
   if (verificationState === "verifying") {
     return (
       <div className={cn("flex flex-col gap-6", className)}>
@@ -94,7 +111,7 @@ function VerifyEmailFormContent({
     )
   }
 
-  // 2. Success state
+  // Success state
   if (verificationState === "success") {
     return (
       <div className={cn("flex flex-col gap-6", className)}>
@@ -129,7 +146,7 @@ function VerifyEmailFormContent({
     )
   }
 
-  // 3. Resend email success state
+  // Resend email success state
   if (isResendSuccess) {
     return (
       <div className={cn("flex flex-col gap-6", className)}>
@@ -152,7 +169,7 @@ function VerifyEmailFormContent({
           </div>
           <h1 className="text-2xl font-bold">Check your inbox</h1>
           <p className="text-sm text-balance text-muted-foreground">
-            We have sent a fresh verification link to <strong className="text-foreground">{email}</strong>.
+            We have sent a fresh verification link to <strong className="text-foreground">{registeredEmail}</strong>.
           </p>
         </div>
         <div className="flex flex-col gap-2">
@@ -164,11 +181,11 @@ function VerifyEmailFormContent({
     )
   }
 
-  // 4. Verification error state or general resend request
+  // Verification error state or general resend request
   return (
     <form
       className={cn("flex flex-col gap-6", className)}
-      onSubmit={handleResend}
+      onSubmit={handleSubmit(onSubmit)}
       {...props}
     >
       <FieldGroup>
@@ -214,11 +231,12 @@ function VerifyEmailFormContent({
             id="email"
             type="email"
             placeholder="m@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            {...register("email")}
             disabled={resendEmailMutation.isPending}
-            required
           />
+          {errors.email && (
+            <p className="text-xs text-destructive mt-1 font-medium">{errors.email.message}</p>
+          )}
         </Field>
         <Field>
           <Button type="submit" disabled={resendEmailMutation.isPending}>

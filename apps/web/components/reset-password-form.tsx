@@ -4,6 +4,9 @@ import { useState, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { toast } from "sonner"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import z from "zod"
 import { cn } from "~/lib/utils"
 import { Button } from "~/components/ui/button"
 import {
@@ -15,6 +18,31 @@ import {
 import { Input } from "~/components/ui/input"
 import { trpc } from "~/trpc/client"
 
+const resetPasswordSchema = z.object({
+  password: z.string()
+    .min(8, "Password must be at least 8 characters long")
+    .max(128, "Password must be at most 128 characters long")
+    .refine((val) => /[A-Z]/.test(val), {
+      message: "Password must contain at least one uppercase letter",
+    })
+    .refine((val) => /[a-z]/.test(val), {
+      message: "Password must contain at least one lowercase letter",
+    })
+    .refine((val) => /[0-9]/.test(val), {
+      message: "Password must contain at least one number",
+    })
+    .refine((val) => /[^A-Za-z0-9]/.test(val), {
+      message: "Password must contain at least one special character",
+    }),
+  confirmPassword: z.string()
+    .min(1, "Please confirm your password"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
+});
+
+type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
+
 function ResetPasswordFormContent({
   className,
   ...props
@@ -23,9 +51,19 @@ function ResetPasswordFormContent({
   const router = useRouter()
   const token = searchParams.get("token")
 
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
   const [isSuccess, setIsSuccess] = useState(false)
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ResetPasswordFormValues>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: {
+      password: "",
+      confirmPassword: "",
+    },
+  });
 
   const resetPasswordMutation = trpc.auth.resetPassword.useMutation({
     onSuccess: (data) => {
@@ -41,48 +79,15 @@ function ResetPasswordFormContent({
     },
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
+  const onSubmit = (values: ResetPasswordFormValues) => {
     if (!token) {
       toast.error("Invalid token. Please request a new reset password link.")
       return
     }
 
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match.")
-      return
-    }
-
-    // Basic client side password complexity check
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters long.")
-      return
-    }
-
-    if (!/[A-Z]/.test(password)) {
-      toast.error("Password must contain at least one uppercase letter.")
-      return
-    }
-
-    if (!/[a-z]/.test(password)) {
-      toast.error("Password must contain at least one lowercase letter.")
-      return
-    }
-
-    if (!/[0-9]/.test(password)) {
-      toast.error("Password must contain at least one number.")
-      return
-    }
-
-    if (!/[^A-Za-z0-9]/.test(password)) {
-      toast.error("Password must contain at least one special character.")
-      return
-    }
-
     resetPasswordMutation.mutate({
       token,
-      password,
+      password: values.password,
     })
   }
 
@@ -160,7 +165,7 @@ function ResetPasswordFormContent({
   return (
     <form
       className={cn("flex flex-col gap-6", className)}
-      onSubmit={handleSubmit}
+      onSubmit={handleSubmit(onSubmit)}
       {...props}
     >
       <FieldGroup>
@@ -175,11 +180,12 @@ function ResetPasswordFormContent({
           <Input
             id="password"
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            {...register("password")}
             disabled={resetPasswordMutation.isPending}
-            required
           />
+          {errors.password && (
+            <p className="text-xs text-destructive mt-1 font-medium">{errors.password.message}</p>
+          )}
           <FieldDescription>
             Must contain at least 8 characters, 1 uppercase, 1 lowercase, 1 number, and 1 special char.
           </FieldDescription>
@@ -189,11 +195,12 @@ function ResetPasswordFormContent({
           <Input
             id="confirm-password"
             type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            {...register("confirmPassword")}
             disabled={resetPasswordMutation.isPending}
-            required
           />
+          {errors.confirmPassword && (
+            <p className="text-xs text-destructive mt-1 font-medium">{errors.confirmPassword.message}</p>
+          )}
         </Field>
         <Field>
           <Button type="submit" disabled={resetPasswordMutation.isPending}>

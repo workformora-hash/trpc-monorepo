@@ -3,6 +3,9 @@
 import { useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import z from "zod"
 import { cn } from "~/lib/utils"
 import { Button } from "~/components/ui/button"
 import {
@@ -16,17 +19,56 @@ import { Input } from "~/components/ui/input"
 import { trpc } from "~/trpc/client"
 import { api } from "~/trpc/server"
 
+const signupSchema = z.object({
+  name: z.string()
+    .min(3, "Name must be at least 3 characters long")
+    .max(128, "Name must be at most 128 characters long"),
+  email: z.string()
+    .email("Please provide a valid email address"),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters long")
+    .max(128, "Password must be at most 128 characters long")
+    .refine((val) => /[A-Z]/.test(val), {
+      message: "Password must contain at least one uppercase letter",
+    })
+    .refine((val) => /[a-z]/.test(val), {
+      message: "Password must contain at least one lowercase letter",
+    })
+    .refine((val) => /[0-9]/.test(val), {
+      message: "Password must contain at least one number",
+    })
+    .refine((val) => /[^A-Za-z0-9]/.test(val), {
+      message: "Password must contain at least one special character",
+    }),
+  confirmPassword: z.string()
+    .min(1, "Please confirm your password"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
+});
+
+type SignupFormValues = z.infer<typeof signupSchema>;
+
 export function SignupForm({
   className,
   ...props
 }: React.ComponentProps<"form">) {
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
   const [isSuccess, setIsSuccess] = useState(false)
+  const [registeredEmail, setRegisteredEmail] = useState("")
 
-
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<SignupFormValues>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
+  });
 
   const handleGoogleSignup = async () => {
     const loadingToast = toast.loading("Connecting to Google...")
@@ -45,9 +87,10 @@ export function SignupForm({
     }
   }
 
-  // 2. Email Signup mutation
+  // Email Signup mutation
   const signupMutation = trpc.auth.createUserwithEmailAndPassword.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
+      setRegisteredEmail(variables.email)
       setIsSuccess(true)
       toast.success("Account created successfully! Verification email sent.")
     },
@@ -56,53 +99,11 @@ export function SignupForm({
     },
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!name || !email || !password || !confirmPassword) {
-      toast.error("Please fill in all required fields.")
-      return
-    }
-
-    if (name.length < 3) {
-      toast.error("Name must be at least 3 characters long.")
-      return
-    }
-
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match.")
-      return
-    }
-
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters long.")
-      return
-    }
-
-    if (!/[A-Z]/.test(password)) {
-      toast.error("Password must contain at least one uppercase letter.")
-      return
-    }
-
-    if (!/[a-z]/.test(password)) {
-      toast.error("Password must contain at least one lowercase letter.")
-      return
-    }
-
-    if (!/[0-9]/.test(password)) {
-      toast.error("Password must contain at least one number.")
-      return
-    }
-
-    if (!/[^A-Za-z0-9]/.test(password)) {
-      toast.error("Password must contain at least one special character.")
-      return
-    }
-
+  const onSubmit = (values: SignupFormValues) => {
     signupMutation.mutate({
-      name,
-      email,
-      password,
+      name: values.name,
+      email: values.email,
+      password: values.password,
     })
   }
 
@@ -129,7 +130,7 @@ export function SignupForm({
           </div>
           <h1 className="text-2xl font-bold">Verify your email</h1>
           <p className="text-sm text-balance text-muted-foreground">
-            We have sent a verification link to <strong className="text-foreground">{email}</strong>. Please click the link inside the email to activate your account.
+            We have sent a verification link to <strong className="text-foreground">{registeredEmail}</strong>. Please click the link inside the email to activate your account.
           </p>
         </div>
         <div className="flex flex-col gap-2">
@@ -144,7 +145,7 @@ export function SignupForm({
   return (
     <form
       className={cn("flex flex-col gap-6", className)}
-      onSubmit={handleSubmit}
+      onSubmit={handleSubmit(onSubmit)}
       {...props}
     >
       <FieldGroup>
@@ -160,11 +161,12 @@ export function SignupForm({
             id="name"
             type="text"
             placeholder="John Doe"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            {...register("name")}
             disabled={signupMutation.isPending}
-            required
           />
+          {errors.name && (
+            <p className="text-xs text-destructive mt-1 font-medium">{errors.name.message}</p>
+          )}
         </Field>
         <Field>
           <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -172,11 +174,12 @@ export function SignupForm({
             id="email"
             type="email"
             placeholder="m@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            {...register("email")}
             disabled={signupMutation.isPending}
-            required
           />
+          {errors.email && (
+            <p className="text-xs text-destructive mt-1 font-medium">{errors.email.message}</p>
+          )}
           <FieldDescription>
             We&apos;ll use this to contact you. We will not share your email
             with anyone else.
@@ -187,11 +190,12 @@ export function SignupForm({
           <Input
             id="password"
             type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            {...register("password")}
             disabled={signupMutation.isPending}
-            required
           />
+          {errors.password && (
+            <p className="text-xs text-destructive mt-1 font-medium">{errors.password.message}</p>
+          )}
           <FieldDescription>
             Must be at least 8 characters long, with 1 uppercase, 1 lowercase, 1 number, and 1 special char.
           </FieldDescription>
@@ -201,11 +205,12 @@ export function SignupForm({
           <Input
             id="confirm-password"
             type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            {...register("confirmPassword")}
             disabled={signupMutation.isPending}
-            required
           />
+          {errors.confirmPassword && (
+            <p className="text-xs text-destructive mt-1 font-medium">{errors.confirmPassword.message}</p>
+          )}
           <FieldDescription>Please confirm your password.</FieldDescription>
         </Field>
         <Field>
