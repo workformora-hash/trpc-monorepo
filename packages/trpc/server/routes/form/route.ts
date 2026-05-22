@@ -310,7 +310,13 @@ export const formRouter = router({
       }
 
       const result = await formService.getFormByIdCreator(sessionToken, input);
-      return result;
+      return {
+        form: {
+          ...result.form,
+          isPasswordProtected: !!result.form.passwordHash,
+        },
+        fields: result.fields,
+      };
     } catch (error: any) {
       if (error instanceof TRPCError) throw error;
 

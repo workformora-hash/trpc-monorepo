@@ -195,6 +195,7 @@ export const getFormByIdCreatorOutputModel = z.object({
     isArchived: z.boolean(),
     notifyCreator: z.boolean(),
     notifyRespondent: z.boolean(),
+    isPasswordProtected: z.boolean().optional(),
     createdAt: z.date(),
     updatedAt: z.date(),
   }),
@@ -325,7 +326,7 @@ export const listFormThemesOutputModel = z.array(
 
 export const addFormFieldInputModel = z.object({
   formId: z.string().uuid("Invalid form ID format"),
-  label: z.string().min(1, "Label is required").max(512, "Label must be at most 512 characters long"),
+  label: z.string().min(0).max(512, "Label must be at most 512 characters long").optional().default(""),
   type: z.enum([
     "short_text",
     "long_text",
@@ -347,7 +348,7 @@ export const addFormFieldOutputModel = z.object({
 
 export const editFormFieldInputModel = z.object({
   id: z.string().uuid("Invalid field ID format"),
-  label: z.string().min(1, "Label is required").max(512, "Label must be at most 512 characters long").optional(),
+  label: z.string().min(0).max(512, "Label must be at most 512 characters long").optional(),
   type: z.enum([
     "short_text",
     "long_text",

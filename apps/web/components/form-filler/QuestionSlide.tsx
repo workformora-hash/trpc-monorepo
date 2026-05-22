@@ -313,7 +313,7 @@ export function QuestionSlide({
             )}
           </h2>
           {typeof validation.description === "string" && validation.description && (
-            <p className="text-xs opacity-50" style={{ color: styles.textColor }}>
+            <p className="text-sm opacity-70" style={{ color: styles.textColor }}>
               {validation.description}
             </p>
           )}

@@ -43,7 +43,7 @@ export const createFormInput = z.object({
     .describe("Whether to email the respondent on submission"),
 });
 
-export type CreateFormInputType = z.infer<typeof createFormInput>;
+export type CreateFormInputType = z.input<typeof createFormInput>;
 
 export const editFormInput = z.object({
   id: z.string().uuid("Invalid form ID format"),
@@ -160,7 +160,7 @@ export const fieldTypeSchema = z.enum([
 
 export const addFormFieldInput = z.object({
   formId: z.string().uuid("Invalid form ID format"),
-  label: z.string().min(1, "Label is required").max(512, "Label must be at most 512 characters long"),
+  label: z.string().min(0).max(512, "Label must be at most 512 characters long").optional().default(""),
   type: fieldTypeSchema,
   required: z.boolean().default(false),
   validation: z.record(z.string(), z.unknown()).optional(),
@@ -170,7 +170,7 @@ export type AddFormFieldInputType = z.infer<typeof addFormFieldInput>;
 
 export const editFormFieldInput = z.object({
   id: z.string().uuid("Invalid field ID format"),
-  label: z.string().min(1, "Label is required").max(512, "Label must be at most 512 characters long").optional(),
+  label: z.string().min(0).max(512, "Label must be at most 512 characters long").optional(),
   type: fieldTypeSchema.optional(),
   required: z.boolean().optional(),
   validation: z.record(z.string(), z.unknown()).optional(),

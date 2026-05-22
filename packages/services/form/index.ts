@@ -752,6 +752,9 @@ class FormService {
       throw new Error("Failed to add form field");
     }
 
+    // Invalidate cache for public form
+    await redis.invalidateForm(existingForm.slug);
+
     return newField;
   }
 
@@ -800,6 +803,9 @@ class FormService {
       throw new Error("Failed to edit form field");
     }
 
+    // Invalidate cache for public form
+    await redis.invalidateForm(fieldWithForm.form.slug);
+
     return updatedField;
   }
 
@@ -835,6 +841,9 @@ class FormService {
     await db
       .delete(formFieldsTable)
       .where(eq(formFieldsTable.id, validated.id));
+
+    // Invalidate cache for public form
+    await redis.invalidateForm(fieldWithForm.form.slug);
 
     return {
       success: true,
@@ -880,6 +889,9 @@ class FormService {
           );
       }
     });
+
+    // Invalidate cache for public form
+    await redis.invalidateForm(existingForm.slug);
 
     return {
       success: true,

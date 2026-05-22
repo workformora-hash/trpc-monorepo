@@ -55,7 +55,7 @@ function LoginFormContent({
     onSuccess: (data) => {
       if (data.success) {
         toast.success(`Welcome back, ${data.user.name}!`)
-        router.push("/")
+        router.push("/dashboard")
         router.refresh()
       } else {
         toast.error("Google authentication failed. Please try again.")
@@ -99,7 +99,7 @@ function LoginFormContent({
     onSuccess: (data) => {
       if (data.success) {
         toast.success(`Welcome back, ${data.user.name}!`)
-        router.push("/")
+        router.push("/dashboard")
         router.refresh()
       }
     },

@@ -1,13 +1,23 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { LayoutDashboard } from 'lucide-react';
+import { useTheme } from 'next-themes';
+import { LayoutDashboard, Sun, Moon } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import { trpc } from '~/trpc/client';
 
 export function Navbar() {
   const { data: userSession } = trpc.auth.getCurrentUser.useQuery();
   const user = userSession?.user;
+
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // Avoid hydration mismatch by waiting until mounted
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
@@ -23,6 +33,22 @@ export function Navbar() {
             <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Documentation</a>
           </div>
           <div className="flex items-center gap-3">
+            {mounted && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="h-9 w-9 text-muted-foreground hover:text-foreground mr-1"
+                aria-label="Toggle theme"
+              >
+                {theme === 'dark' ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+
             {user ? (
               <Link href="/dashboard">
                 <Button className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm h-9 flex items-center gap-1.5">
