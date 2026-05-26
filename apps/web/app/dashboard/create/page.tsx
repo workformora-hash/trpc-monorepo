@@ -4,10 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, Upload, Sparkles, ArrowLeft, Loader2 } from "lucide-react";
+import { Plus, Upload, Sparkles, ArrowLeft, Loader2, LayoutGrid } from "lucide-react";
 import { trpc } from "~/trpc/client";
 
-type Mode = "scratch" | "import" | "ai";
+type Mode = "scratch" | "import" | "ai" | "template";
 
 const CARDS: { mode: Mode; title: string; description: string; Icon: React.ElementType }[] = [
   {
@@ -15,6 +15,12 @@ const CARDS: { mode: Mode; title: string; description: string; Icon: React.Eleme
     title: "Start from scratch",
     description: "Build from a list of ready-made form elements.",
     Icon: Plus,
+  },
+  {
+    mode: "template",
+    title: "Start from template",
+    description: "Instantly create forms using predefined templates.",
+    Icon: LayoutGrid,
   },
   {
     mode: "import",
@@ -33,6 +39,10 @@ const CARDS: { mode: Mode; title: string; description: string; Icon: React.Eleme
 export default function CreateFormPage() {
   const router = useRouter();
   const [pending, setPending] = useState<Mode | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [cloningId, setCloningId] = useState<string | null>(null);
+
+  const { data: templates = [], isLoading: templatesLoading } = trpc.form.listFormTemplates.useQuery(undefined, { enabled: showTemplates });
 
   const createForm = trpc.form.createForm.useMutation({
     onSuccess: (data) => {
@@ -44,8 +54,25 @@ export default function CreateFormPage() {
     },
   });
 
+  const createFormFromTemplate = trpc.form.createFormFromTemplate.useMutation({
+    onSuccess: (data) => {
+      toast.success("Successfully created form from template!");
+      router.push(`/dashboard/form/${data.form.id}`);
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to create form from template.");
+      setCloningId(null);
+    }
+  });
+
   function handlePick(mode: Mode) {
-    if (pending) return;
+    if (pending || cloningId) return;
+
+    if (mode === "template") {
+      setShowTemplates(true);
+      return;
+    }
+
     setPending(mode);
     createForm.mutate({
       title: "Untitled form",
@@ -55,7 +82,7 @@ export default function CreateFormPage() {
   }
 
   return (
-    <div className="h-screen bg-white dark:bg-neutral-950 flex flex-col">
+    <div className="h-screen bg-white dark:bg-neutral-950 flex flex-col font-sans">
       {/* Top bar */}
       <header className="h-14 border-b border-neutral-200 dark:border-neutral-800 flex items-center px-6">
         <Link
@@ -70,32 +97,77 @@ export default function CreateFormPage() {
       {/* Body */}
       <main className="flex-1 flex flex-col items-center justify-center gap-12 p-10">
         <h1 className="text-[28px] font-light text-neutral-800 dark:text-neutral-100 tracking-tight">
-          How do you want to build your form?
+          {showTemplates ? "Choose a template blueprint" : "How do you want to build your form?"}
         </h1>
 
-        <div className="grid grid-cols-3 gap-5 w-full max-w-2xl">
-          {CARDS.map(({ mode, title, description, Icon }) => (
+        {showTemplates ? (
+          <div className="space-y-6 w-full max-w-2xl">
+            <div className="grid grid-cols-3 gap-5">
+              {templatesLoading ? (
+                <div className="col-span-3 flex justify-center py-10">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                templates.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    disabled={cloningId !== null}
+                    onClick={() => {
+                      setCloningId(tpl.id);
+                      createFormFromTemplate.mutate({ templateId: tpl.id });
+                    }}
+                    className="group flex flex-col items-center gap-4 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-400 dark:hover:border-neutral-600 hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed text-center"
+                  >
+                    <div className="h-16 w-16 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                      {cloningId === tpl.id ? (
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                      ) : (
+                        <LayoutGrid className="h-6 w-6 text-primary" />
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-neutral-800 dark:text-neutral-100 line-clamp-1">{tpl.name}</p>
+                      <p className="text-[10px] text-neutral-500 leading-normal line-clamp-2">{tpl.description}</p>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+
             <button
-              key={mode}
               type="button"
-              disabled={!!pending}
-              onClick={() => handlePick(mode)}
-              className="group flex flex-col items-center gap-5 p-8 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-400 dark:hover:border-neutral-600 hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed text-center"
+              onClick={() => setShowTemplates(false)}
+              className="text-xs font-semibold text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-350 transition-colors mx-auto block"
             >
-              <div className="h-24 w-24 rounded-2xl bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center group-hover:bg-neutral-100 dark:group-hover:bg-neutral-700 transition-colors">
-                {pending === mode ? (
-                  <Loader2 className="h-10 w-10 text-neutral-400 animate-spin" />
-                ) : (
-                  <Icon className="h-10 w-10 text-neutral-400" />
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{title}</p>
-                <p className="text-xs text-neutral-500 leading-relaxed">{description}</p>
-              </div>
+              Back to options
             </button>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-4 gap-5 w-full max-w-3xl">
+            {CARDS.map(({ mode, title, description, Icon }) => (
+              <button
+                key={mode}
+                type="button"
+                disabled={!!pending}
+                onClick={() => handlePick(mode)}
+                className="group flex flex-col items-center gap-5 p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-neutral-400 dark:hover:border-neutral-600 hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed text-center"
+              >
+                <div className="h-20 w-20 rounded-2xl bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center group-hover:bg-neutral-100 dark:group-hover:bg-neutral-700 transition-colors">
+                  {pending === mode ? (
+                    <Loader2 className="h-8 w-8 text-neutral-400 animate-spin" />
+                  ) : (
+                    <Icon className="h-8 w-8 text-neutral-400" />
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-100">{title}</p>
+                  <p className="text-[11px] text-neutral-500 leading-relaxed line-clamp-2">{description}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

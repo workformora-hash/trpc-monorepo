@@ -27,10 +27,11 @@ export function Navbar() {
             <div className="flex items-center justify-center h-7 w-7 rounded-sm bg-primary text-primary-foreground font-bold text-sm">F</div>
             <span className="font-semibold text-foreground tracking-tight">FormBuilder</span>
           </div>
-          <div className="hidden md:flex items-center gap-12 text-sm">
-            <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</a>
-            <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-            <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Documentation</a>
+          <div className="hidden md:flex items-center gap-12 text-sm font-semibold">
+            <a href="/#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</a>
+            <a href="/#pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
+            <Link href="/explore" className="text-muted-foreground hover:text-foreground transition-colors">Explore</Link>
+            <Link href="/templates" className="text-muted-foreground hover:text-foreground transition-colors">Templates</Link>
           </div>
           <div className="flex items-center gap-3">
             {mounted && (

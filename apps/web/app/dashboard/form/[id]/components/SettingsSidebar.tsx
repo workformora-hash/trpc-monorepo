@@ -3,67 +3,232 @@ import {
   Plus,
   ToggleLeft,
   ToggleRight,
+  Trash2,
+  Image as ImageIcon,
+  Settings as SettingsIcon,
+  X,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getImageStyles, getBgImageStyles } from '~/utils/image-styles';
+import { useFormBuilderContext } from './FormBuilderContext';
 
-interface ActiveField {
-  id: string;
-  type: string;
-  required: boolean;
-  validation?: any;
-}
 
-interface EditFormFieldMutation {
-  mutate: (variables: any) => void;
-}
 
-export function SettingsSidebar({
-  activeField,
-  editFormFieldMutation,
-}: {
-  activeField: ActiveField;
-  editFormFieldMutation: EditFormFieldMutation;
-}) {
-  const activeValidation = activeField?.validation || {};
+
+
+const WELCOME_PRESETS = [
+  {
+    id: "premium-onboarding-card",
+    name: "Premium Onboarding Card",
+    description: "Elegant card layout with clip-art clipboard icon, 3 Highlights Grid (Quick & Easy, Secure & Private, Important Info), and Cancel link.",
+    label: "Welcome!",
+    validation: {
+      buttonText: "Start Form",
+      buttonBgColor: "#4f46e5",
+      buttonTextColor: "#ffffff",
+      cardBgColor: "#ffffff",
+      bgGradient: "linear-gradient(135deg, #f5f3ff 0%, #e0e7ff 100%)",
+      labelColor: "#1e1b4b",
+      labelFontFamily: "Outfit, sans-serif",
+      labelFontSize: "32px",
+      descriptionColor: "#4338ca",
+      descriptionFontFamily: "Inter, sans-serif",
+      descriptionFontSize: "14px",
+      description: "You're about to start a form. It will only take a few minutes to complete.",
+      showHighlightsGrid: true,
+      showStatsBadge: false,
+    }
+  },
+  {
+    id: "modern-split-hero",
+    name: "Modern Split-Media Hero",
+    description: "High-converting layout with left-aligned split graphic, stats estimation badge, features list, and clean text colors.",
+    label: "Share Your Feedback",
+    validation: {
+      buttonText: "Let's Begin",
+      buttonBgColor: "#0ea5e9",
+      buttonTextColor: "#ffffff",
+      imageLayout: "split-left",
+      imageUrl: "https://images.unsplash.com/photo-1551836022-d5d88e9218df?q=80&w=1000&auto=format&fit=crop",
+      imageAlt: "Feedback Team",
+      showStatsBadge: true,
+      statsTime: "2 mins",
+      features: [
+        "100% Anonymous & Secure",
+        "Takes less than 2 minutes",
+        "Get a 15% discount code at the end"
+      ],
+      cardBgColor: "rgba(255, 255, 255, 0.7)",
+      bgGradient: "linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)",
+      labelColor: "#0f172a",
+      labelFontFamily: "Outfit, sans-serif",
+      labelFontSize: "28px",
+      descriptionColor: "#334155",
+      descriptionFontFamily: "Inter, sans-serif",
+      description: "Join 10,000+ others in shaping the future of our product. Your voice matters.",
+    }
+  },
+  {
+    id: "sleek-dark-glassmorphism",
+    name: "Sleek Dark Glassmorphism",
+    description: "Deep obsidian backdrop with translucent neon card, custom geometric headings, fuchsia buttons, and expert quote card.",
+    label: "Unlock Your Potential",
+    validation: {
+      buttonText: "Start Assessment",
+      buttonBgColor: "#d946ef",
+      buttonTextColor: "#ffffff",
+      bgGradient: "linear-gradient(135deg, #090514 0%, #12092b 50%, #22053d 100%)",
+      bgImageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop",
+      cardBgColor: "rgba(15, 10, 35, 0.8)",
+      labelColor: "#ffffff",
+      labelFontFamily: "Outfit, sans-serif",
+      labelFontSize: "32px",
+      descriptionColor: "#e2e8f0",
+      descriptionFontFamily: "Inter, sans-serif",
+      description: "Complete this quick assessment to get a personalized career trajectory map instantly.",
+      showStatsBadge: true,
+      statsTime: "3 mins",
+      creatorProfile: {
+        name: "Dr. Sarah Jenkins",
+        role: "Head of Career Strategy",
+        avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
+        quote: "This assessment represents our latest research in organizational psychology."
+      }
+    }
+  }
+];
+
+const THANK_YOU_PRESETS = [
+  {
+    id: "premium-reward-share",
+    name: "Premium Reward & Social Share",
+    description: "Emerald green styling, custom Gift promo resource card, and direct X & LinkedIn social share buttons.",
+    label: "Awesome! You're All Done",
+    validation: {
+      buttonText: "Claim Reward",
+      buttonBgColor: "#10b981",
+      buttonTextColor: "#ffffff",
+      cardBgColor: "#ffffff",
+      bgGradient: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)",
+      labelColor: "#064e3b",
+      labelFontFamily: "Outfit, sans-serif",
+      labelFontSize: "28px",
+      descriptionColor: "#065f46",
+      descriptionFontFamily: "Inter, sans-serif",
+      description: "Thank you for sharing your feedback. Your submission has been recorded. As a thank you, here is a special reward for you!",
+      socialShare: true,
+      promoCard: {
+        title: "Claim Your 15% Discount Code",
+        description: "Use coupon code FEEDBACK15 at checkout to enjoy a 15% discount on all our plans.",
+        linkUrl: "https://example.com/claim",
+        linkText: "Go to Checkout →"
+      }
+    }
+  },
+  {
+    id: "split-visual-thank-you",
+    name: "Visual Split Thank You",
+    description: "Elegant split layout with digital abstract graphic, beautiful pastel indigo colors, and direct link copy function.",
+    label: "Thank You!",
+    validation: {
+      buttonText: "Create Your Own Form",
+      buttonBgColor: "#6366f1",
+      buttonTextColor: "#ffffff",
+      imageLayout: "split-right",
+      imageUrl: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1000&auto=format&fit=crop",
+      imageAlt: "Digital Abstract",
+      cardBgColor: "#ffffff",
+      bgGradient: "linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)",
+      labelColor: "#1e1b4b",
+      labelFontFamily: "Outfit, sans-serif",
+      labelFontSize: "32px",
+      descriptionColor: "#312e81",
+      descriptionFontFamily: "Inter, sans-serif",
+      description: "Your answers have been successfully submitted. We appreciate your time and support.",
+      socialShare: true,
+    }
+  },
+  {
+    id: "minimalist-executive-outro",
+    name: "Minimalist Executive Outro",
+    description: "Vogue luxury layout with clean paper-white gradients, Playfair Display serif typography, and clean action button.",
+    label: "Submission Received",
+    validation: {
+      buttonText: "Return to Homepage",
+      buttonBgColor: "#18181b",
+      buttonTextColor: "#ffffff",
+      cardBgColor: "#ffffff",
+      bgGradient: "linear-gradient(135deg, #fafafa 0%, #eaeaea 100%)",
+      labelColor: "#09090b",
+      labelFontFamily: '"Playfair Display", serif',
+      labelFontSize: "32px",
+      descriptionColor: "#27272a",
+      descriptionFontFamily: "Inter, sans-serif",
+      description: "Thank you for completing this form. Your response has been securely archived and will be reviewed shortly by our executive team.",
+      socialShare: false,
+    }
+  }
+];
+
+export function SettingsSidebar() {
+  const { 
+    activeField, 
+    editFormFieldMutation, 
+    activeValidation: rawActiveValidation,
+    setLocalLabel,
+    setLocalDescription
+  } = useFormBuilderContext();
+
+  const activeValidation = rawActiveValidation as any;
+
+  // Large Interactive Image Studio Modal State
+  const [activeEditorType, setActiveEditorType] = useState<'main' | 'bg' | null>(null);
+  const [previewMode, setPreviewMode] = useState<'crop' | 'original'>('crop');
 
   // Local optimistic states to ensure toggles switch instantly (0ms latency)
-  const [localRequired, setLocalRequired] = useState(activeField.required);
-  const [localIsMultiple, setLocalIsMultiple] = useState(activeField.type === "multi_select");
-  const [localRandomize, setLocalRandomize] = useState(!!activeValidation.randomize);
-  const [localAllowOther, setLocalAllowOther] = useState(!!activeValidation.allowOther);
-  const [localVerticalAlign, setLocalVerticalAlign] = useState(!!activeValidation.verticalAlign);
+  const [localRequired, setLocalRequired] = useState(activeField?.required ?? false);
+  const [localIsMultiple, setLocalIsMultiple] = useState(activeField?.type === "multi_select");
+  const [localRandomize, setLocalRandomize] = useState(!!activeValidation?.randomize);
+  const [localAllowOther, setLocalAllowOther] = useState(!!activeValidation?.allowOther);
+  const [localVerticalAlign, setLocalVerticalAlign] = useState(!!activeValidation?.verticalAlign);
 
   // Local optimistic validation rule states (Basic)
-  const [localMinLength, setLocalMinLength] = useState<number | "">(activeValidation.minLength !== undefined ? activeValidation.minLength : "");
-  const [localMaxLength, setLocalMaxLength] = useState<number | "">(activeValidation.maxLength !== undefined ? activeValidation.maxLength : "");
-  const [localMin, setLocalMin] = useState<number | "">(activeValidation.min !== undefined ? activeValidation.min : "");
-  const [localMax, setLocalMax] = useState<number | "">(activeValidation.max !== undefined ? activeValidation.max : "");
-  const [localMinDate, setLocalMinDate] = useState<string>(activeValidation.minDate || "");
-  const [localMaxDate, setLocalMaxDate] = useState<string>(activeValidation.maxDate || "");
+  const [localMinLength, setLocalMinLength] = useState<number | "">(activeValidation?.minLength !== undefined ? activeValidation.minLength : "");
+  const [localMaxLength, setLocalMaxLength] = useState<number | "">(activeValidation?.maxLength !== undefined ? activeValidation.maxLength : "");
+  const [localMin, setLocalMin] = useState<number | "">(activeValidation?.min !== undefined ? activeValidation.min : "");
+  const [localMax, setLocalMax] = useState<number | "">(activeValidation?.max !== undefined ? activeValidation.max : "");
+  const [localMinDate, setLocalMinDate] = useState<string>(activeValidation?.minDate || "");
+  const [localMaxDate, setLocalMaxDate] = useState<string>(activeValidation?.maxDate || "");
 
   // Local optimistic validation rule states (Advanced/Typeform Premium)
-  const [localBlockFreeEmails, setLocalBlockFreeEmails] = useState(!!activeValidation.blockFreeEmails);
-  const [localAllowedDomains, setLocalAllowedDomains] = useState(activeValidation.allowedDomains || "");
-  const [localFormat, setLocalFormat] = useState(activeValidation.format || "any");
-  const [localPattern, setLocalPattern] = useState(activeValidation.pattern || "");
-  const [localPatternMessage, setLocalPatternMessage] = useState(activeValidation.patternMessage || "");
-  const [localIntegerOnly, setLocalIntegerOnly] = useState(!!activeValidation.integerOnly);
-  const [localMaxStars, setLocalMaxStars] = useState<number>(activeValidation.maxStars || activeValidation.max || 5);
-  const [localMustBeChecked, setLocalMustBeChecked] = useState(!!activeValidation.mustBeChecked);
-  const [localMinChoices, setLocalMinChoices] = useState<number | "">(activeValidation.minChoices !== undefined ? activeValidation.minChoices : "");
-  const [localMaxChoices, setLocalMaxChoices] = useState<number | "">(activeValidation.maxChoices !== undefined ? activeValidation.maxChoices : "");
+  const [localBlockFreeEmails, setLocalBlockFreeEmails] = useState(!!activeValidation?.blockFreeEmails);
+  const [localAllowedDomains, setLocalAllowedDomains] = useState(activeValidation?.allowedDomains || "");
+  const [localFormat, setLocalFormat] = useState(activeValidation?.format || "any");
+  const [localPattern, setLocalPattern] = useState(activeValidation?.pattern || "");
+  const [localPatternMessage, setLocalPatternMessage] = useState(activeValidation?.patternMessage || "");
+  const [localIntegerOnly, setLocalIntegerOnly] = useState(!!activeValidation?.integerOnly);
+  const [localMaxStars, setLocalMaxStars] = useState<number>(activeValidation?.maxStars || activeValidation?.max || 5);
+  const [localMustBeChecked, setLocalMustBeChecked] = useState(!!activeValidation?.mustBeChecked);
+  const [localMinChoices, setLocalMinChoices] = useState<number | "">(activeValidation?.minChoices !== undefined ? activeValidation.minChoices : "");
+  const [localMaxChoices, setLocalMaxChoices] = useState<number | "">(activeValidation?.maxChoices !== undefined ? activeValidation.maxChoices : "");
 
   // Local optimistic validation rule states (Brand New 6 Field Types)
-  const [localRequirePhone, setLocalRequirePhone] = useState(!!activeValidation.requirePhone);
-  const [localRequireCompany, setLocalRequireCompany] = useState(!!activeValidation.requireCompany);
-  const [localRequireZip, setLocalRequireZip] = useState(!!activeValidation.requireZip);
-  const [localRequireCountry, setLocalRequireCountry] = useState(!!activeValidation.requireCountry);
-  const [localRequireSecure, setLocalRequireSecure] = useState(!!activeValidation.requireSecure);
-  const [localAlphabetical, setLocalAlphabetical] = useState(!!activeValidation.alphabetical);
-  const [localMustRankAll, setLocalMustRankAll] = useState(!!activeValidation.mustRankAll);
+  const [localRequirePhone, setLocalRequirePhone] = useState(!!activeValidation?.requirePhone);
+  const [localRequireCompany, setLocalRequireCompany] = useState(!!activeValidation?.requireCompany);
+  const [localRequireZip, setLocalRequireZip] = useState(!!activeValidation?.requireZip);
+  const [localRequireCountry, setLocalRequireCountry] = useState(!!activeValidation?.requireCountry);
+  const [localRequireSecure, setLocalRequireSecure] = useState(!!activeValidation?.requireSecure);
+  const [localAlphabetical, setLocalAlphabetical] = useState(!!activeValidation?.alphabetical);
+  const [localMustRankAll, setLocalMustRankAll] = useState(!!activeValidation?.mustRankAll);
+
+  // States for Starting/Ending screen customization
+  const [localButtonText, setLocalButtonText] = useState(activeValidation?.buttonText || "");
+  const [localRedirectUrl, setLocalRedirectUrl] = useState(activeValidation?.redirectUrl || "");
 
   // Synchronize local states when the active field or validation updates from the database
   useEffect(() => {
+    if (!activeField) return;
     setLocalRequired(activeField.required);
     setLocalIsMultiple(activeField.type === "multi_select");
     setLocalRandomize(!!activeValidation.randomize);
@@ -95,38 +260,58 @@ export function SettingsSidebar({
     setLocalRequireSecure(!!activeValidation.requireSecure);
     setLocalAlphabetical(!!activeValidation.alphabetical);
     setLocalMustRankAll(!!activeValidation.mustRankAll);
+
+    setLocalButtonText(activeValidation.buttonText || "");
+    setLocalRedirectUrl(activeValidation.redirectUrl || "");
   }, [
     activeField,
-    activeField.required,
-    activeField.type,
-    activeValidation.randomize,
-    activeValidation.allowOther,
-    activeValidation.verticalAlign,
-    activeValidation.minLength,
-    activeValidation.maxLength,
-    activeValidation.min,
-    activeValidation.max,
-    activeValidation.minDate,
-    activeValidation.maxDate,
-    activeValidation.blockFreeEmails,
-    activeValidation.allowedDomains,
-    activeValidation.format,
-    activeValidation.pattern,
-    activeValidation.patternMessage,
-    activeValidation.integerOnly,
-    activeValidation.maxStars,
-    activeValidation.max,
-    activeValidation.mustBeChecked,
-    activeValidation.minChoices,
-    activeValidation.maxChoices,
-    activeValidation.requirePhone,
-    activeValidation.requireCompany,
-    activeValidation.requireZip,
-    activeValidation.requireCountry,
-    activeValidation.requireSecure,
-    activeValidation.alphabetical,
-    activeValidation.mustRankAll,
+    activeField?.required,
+    activeField?.type,
+    activeValidation?.randomize,
+    activeValidation?.allowOther,
+    activeValidation?.verticalAlign,
+    activeValidation?.minLength,
+    activeValidation?.maxLength,
+    activeValidation?.min,
+    activeValidation?.max,
+    activeValidation?.minDate,
+    activeValidation?.maxDate,
+    activeValidation?.blockFreeEmails,
+    activeValidation?.allowedDomains,
+    activeValidation?.format,
+    activeValidation?.pattern,
+    activeValidation?.patternMessage,
+    activeValidation?.integerOnly,
+    activeValidation?.maxStars,
+    activeValidation?.max,
+    activeValidation?.mustBeChecked,
+    activeValidation?.minChoices,
+    activeValidation?.maxChoices,
+    activeValidation?.requirePhone,
+    activeValidation?.requireCompany,
+    activeValidation?.requireZip,
+    activeValidation?.requireCountry,
+    activeValidation?.requireSecure,
+    activeValidation?.alphabetical,
+    activeValidation?.mustRankAll,
+    activeValidation?.buttonText,
+    activeValidation?.redirectUrl,
   ]);
+
+  if (!activeField) return null;
+
+  const handleApplyPreset = (preset: any) => {
+    setLocalLabel(preset.label);
+    setLocalDescription(preset.validation.description || "");
+    
+    editFormFieldMutation.mutate({
+      id: activeField.id,
+      label: preset.label,
+      validation: preset.validation,
+    });
+    
+    toast.success(`Applied template "${preset.name}" successfully!`);
+  };
 
   const handleToggleRequired = () => {
     const nextVal = !localRequired;
@@ -443,24 +628,44 @@ export function SettingsSidebar({
     activeField.type === "website" ||
     activeField.type === "dropdown" ||
     activeField.type === "yes_no" ||
-    activeField.type === "ranking";
+    activeField.type === "ranking" ||
+    activeField.type === "welcome" ||
+    activeField.type === "thank_you" ||
+    activeField.type === "statement";
 
   return (
-    <aside className="w-80 border-l border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 space-y-6 overflow-y-auto font-sans select-none animate-fadeIn">
+    <aside className="w-72 border-l border-neutral-150 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex flex-col overflow-hidden font-sans select-none animate-fadeIn shrink-0">
       
-      {/* Category switcher */}
-      <div className="space-y-4">
-        <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block border-b pb-1">Question</span>
-        
-        {/* Text vs Video switcher */}
-        <div className="flex bg-neutral-100 dark:bg-neutral-955 p-1 rounded-lg border dark:border-neutral-800">
-          <button className="flex-1 py-1 text-[11px] font-bold bg-white dark:bg-neutral-900 rounded shadow-xs text-neutral-800 dark:text-neutral-100 text-center">Text</button>
-          <button className="flex-1 py-1 text-[11px] font-bold text-neutral-500 hover:text-neutral-800 text-center">Video</button>
+      {/* Contextual header showing active field type */}
+      <div className="px-4 py-3 border-b border-neutral-100 dark:border-neutral-800 shrink-0">
+        <div className="flex items-center gap-2">
+          <div className={`p-1.5 rounded-lg text-[10px] ${
+            activeField.type === 'welcome' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600' :
+            activeField.type === 'thank_you' ? 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-500' :
+            activeField.type === 'rating' ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-600' :
+            activeField.type === 'email' ? 'bg-violet-100 dark:bg-violet-950/40 text-violet-600' :
+            'bg-primary/10 text-primary'
+          }`}>
+            <SettingsIcon className="h-3.5 w-3.5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-bold text-neutral-700 dark:text-neutral-200 block capitalize">
+              {activeField.type === 'welcome' ? 'Welcome Screen' :
+               activeField.type === 'thank_you' ? 'Thank You Screen' :
+               activeField.type === 'statement' ? 'Statement Slide' :
+               activeField.type.replace('_', ' ')} Settings
+            </span>
+            <span className="text-[9px] text-neutral-400">Configure field properties</span>
+          </div>
         </div>
+      </div>
 
+      {/* Scrollable panel */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+      
         {/* Question Type selection dropdown */}
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-neutral-400 block">Type</label>
+        <div className="space-y-1.5">
+          <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block">Field Type</label>
           <select
             value={activeField.type}
             onChange={(e) => {
@@ -471,8 +676,9 @@ export function SettingsSidebar({
                 });
               }
             }}
-            className="w-full bg-white dark:bg-neutral-955 border border-neutral-250 dark:border-neutral-800 rounded-lg px-3 py-2 text-xs font-semibold dark:text-neutral-100 text-neutral-750 focus:outline-none"
+            className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-2 text-xs font-semibold dark:text-neutral-100 text-neutral-700 focus:outline-none focus:border-primary transition-colors"
           >
+            <option value="welcome">Starting / Welcome Screen</option>
             <option value="short_text">Short Text</option>
             <option value="long_text">Long Text</option>
             <option value="email">Email</option>
@@ -487,13 +693,57 @@ export function SettingsSidebar({
             <option value="dropdown">Dropdown Selection</option>
             <option value="yes_no">Yes/No buttons</option>
             <option value="ranking">Ranking list</option>
+            <option value="thank_you">Ending / Thank You Screen</option>
+            <option value="statement">Statement (Text slide)</option>
           </select>
         </div>
-      </div>
+
+        {/* Starting/Ending Screen Preset Templates Selector */}
+        {(activeField.type === "welcome" || activeField.type === "thank_you") && (
+          <div className="space-y-3 pt-3.5 border-t border-neutral-100 dark:border-neutral-800 animate-fadeIn">
+            <label className="text-[9.5px] font-extrabold text-neutral-450 uppercase tracking-wider block">
+              Screen Templates
+            </label>
+            <div className="space-y-2.5">
+              {(activeField.type === "welcome" ? WELCOME_PRESETS : THANK_YOU_PRESETS).map((preset) => {
+                const isSelected = activeField.label === preset.label && 
+                  activeValidation.buttonText === preset.validation.buttonText;
+                
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleApplyPreset(preset)}
+                    className={`w-full text-left p-3.5 rounded-xl border text-xs transition-all relative flex flex-col gap-1.5 cursor-pointer overflow-hidden group/preset ${
+                      isSelected 
+                        ? "border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/20 ring-1 ring-indigo-500/30" 
+                        : "border-neutral-200 dark:border-neutral-800 hover:border-neutral-350 dark:hover:border-neutral-700 bg-neutral-50/45 dark:bg-neutral-900/30"
+                    }`}
+                  >
+                    {/* Small color dots preview on top corner */}
+                    <div className="absolute right-3.5 top-3.5 flex gap-1.5 opacity-70 group-hover/preset:opacity-100 transition-opacity">
+                      <span className="w-2 h-2 rounded-full border border-white/20" style={{ backgroundColor: preset.validation.buttonBgColor }} title="Button color" />
+                      <span className="w-2 h-2 rounded-full border border-white/20" style={{ backgroundColor: preset.validation.labelColor }} title="Text color" />
+                    </div>
+
+                    <span className="font-extrabold text-neutral-800 dark:text-neutral-200 tracking-tight">
+                      {preset.name}
+                    </span>
+                    <span className="text-[10px] text-neutral-400 dark:text-neutral-550 leading-normal font-medium font-sans">
+                      {preset.description}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+      
 
       {/* Settings switches */}
-      <div className="space-y-4 pt-4 border-t border-neutral-100 dark:border-neutral-800">
-        <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest block border-b pb-1">Settings</span>
+      <div className="space-y-3 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+        <span className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest block">Field Options</span>
         
         <div className="space-y-3.5">
           {/* REQUIRED SWITCH */}
@@ -934,19 +1184,7 @@ export function SettingsSidebar({
           </div>
         </div>
       )}
-
-      {/* Image/Video preview box */}
-      <div className="space-y-2 pt-4 border-t border-neutral-100 dark:border-neutral-800">
-        <span className="text-[10px] font-bold text-neutral-400 block uppercase tracking-wider text-left block">Image or video</span>
-        <button
-          onClick={() => toast.info("Premium layout asset attachment active!")}
-          className="w-full aspect-video border-2 border-dashed dark:border-neutral-800 border-neutral-200 rounded-xl hover:bg-neutral-50 dark:hover:bg-neutral-955 flex flex-col items-center justify-center gap-1.5 text-neutral-400 transition-all"
-        >
-          <Plus className="h-5 w-5" />
-          <span className="text-[10px] font-bold">Add media assets</span>
-        </button>
       </div>
-
     </aside>
   );
 }

@@ -1,12 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { Sun, Moon } from 'lucide-react';
-import { Button } from '~/components/ui/button';
-import { toast } from 'sonner';
+import { Sun, Moon, Eye, Loader2, ChevronRight, Zap, Globe, Check } from 'lucide-react';
 
-export type FormTab = 'content' | 'workflow' | 'connect' | 'share' | 'results';
+export type FormTab = 'content' | 'logic' | 'workflow' | 'connect' | 'share' | 'results';
 
 interface FormHeaderProps {
   formId: string;
@@ -22,7 +20,18 @@ interface FormHeaderProps {
   userName?: string | null;
   refetchResponses: () => void;
   refetchAnalytics: () => void;
+  onPreviewOpen: () => void;
+  isSaving?: boolean;
 }
+
+const TAB_CONFIG: { id: FormTab; label: string }[] = [
+  { id: 'content', label: 'Build' },
+  { id: 'logic', label: 'Logic' },
+  { id: 'workflow', label: 'Settings' },
+  { id: 'connect', label: 'Connect' },
+  { id: 'share', label: 'Share' },
+  { id: 'results', label: 'Results' },
+];
 
 export function FormHeader({
   formId,
@@ -38,94 +47,127 @@ export function FormHeader({
   userName,
   refetchResponses,
   refetchAnalytics,
+  onPreviewOpen,
+  isSaving,
 }: FormHeaderProps) {
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [localTitle, setLocalTitle] = useState(formTitle);
+
+  const handleTitleBlur = () => {
+    setEditingTitle(false);
+    const trimmed = localTitle.trim();
+    if (trimmed && trimmed !== formTitle) onTitleChange(trimmed);
+    else setLocalTitle(formTitle);
+  };
+
   return (
-    <header className="h-14 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between px-6 bg-white dark:bg-neutral-900 z-40 select-none">
-      <div className="flex items-center gap-3">
+    <header className="h-13 border-b border-neutral-150 dark:border-neutral-800/80 flex items-center justify-between px-5 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-sm z-40 select-none shrink-0" style={{ height: '52px' }}>
+      
+      {/* Left: Breadcrumb + editable title */}
+      <div className="flex items-center gap-2 min-w-0">
         <Link
           href="/dashboard"
-          className="text-xs font-semibold text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-200 flex items-center gap-1 transition-colors"
+          className="text-[11px] font-semibold text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1"
         >
-          &lt; My workspace
+          Workspace
         </Link>
-        <span className="text-neutral-300 font-light">/</span>
-        <input
-          type="text"
-          defaultValue={formTitle}
-          onBlur={(e) => {
-            const val = e.target.value.trim();
-            if (val && val !== formTitle) {
-              onTitleChange(val);
-            }
-          }}
-          className="text-xs font-bold text-neutral-800 dark:text-neutral-200 bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-primary focus:outline-none px-1 py-0.5 transition-all"
-        />
-      </div>
+        <ChevronRight className="h-3 w-3 text-neutral-300 dark:text-neutral-700 shrink-0" />
 
-      {/* Nav Center Tabs */}
-      <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-950 p-1 rounded-full border border-neutral-200 dark:border-neutral-800/80">
-        {(['content', 'workflow', 'connect', 'share', 'results'] as const).map((tab) => {
-          const labels: Record<FormTab, string> = {
-            content: 'Content',
-            workflow: 'Workflow',
-            connect: 'Connect',
-            share: 'Share',
-            results: 'Results',
-          };
-          return (
-            <button
-              key={tab}
-              onClick={() => {
-                setActiveTab(tab);
-                if (tab === 'results') {
-                  refetchResponses();
-                  refetchAnalytics();
-                }
-              }}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
-                activeTab === tab
-                  ? 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 border border-neutral-200 dark:border-neutral-800 shadow-xs'
-                  : 'text-neutral-500 hover:text-neutral-955 dark:hover:text-neutral-200'
-              }`}
-            >
-              {labels[tab]}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Right actions */}
-      <div className="flex items-center gap-3">
-        {themeMounted && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="border dark:border-neutral-800 border-neutral-200 h-8 w-8 hover:bg-neutral-50 dark:hover:bg-neutral-950 rounded-lg text-neutral-500"
+        {editingTitle ? (
+          <input
+            autoFocus
+            value={localTitle}
+            onChange={(e) => setLocalTitle(e.target.value)}
+            onBlur={handleTitleBlur}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleTitleBlur(); if (e.key === 'Escape') { setLocalTitle(formTitle); setEditingTitle(false); } }}
+            className="text-xs font-bold text-neutral-800 dark:text-neutral-100 bg-transparent border-b border-primary focus:outline-none px-1 min-w-0 max-w-[200px]"
+          />
+        ) : (
+          <button
+            onClick={() => { setLocalTitle(formTitle); setEditingTitle(true); }}
+            className="text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:text-neutral-900 dark:hover:text-white truncate max-w-[180px] text-left transition-colors group flex items-center gap-1.5"
+            title="Click to rename"
           >
-            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </Button>
+            <span className="truncate">{formTitle}</span>
+            <span className="opacity-0 group-hover:opacity-40 text-[9px] shrink-0 transition-opacity">✎</span>
+          </button>
         )}
 
+        {/* Live save indicator */}
+        {isSaving && (
+          <div className="flex items-center gap-1 text-[10px] text-neutral-400 shrink-0 animate-fadeIn">
+            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+            <span className="hidden sm:block">Saving…</span>
+          </div>
+        )}
+      </div>
+
+      {/* Center: Tab nav */}
+      <nav className="flex items-center gap-0.5 absolute left-1/2 -translate-x-1/2">
+        {TAB_CONFIG.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => {
+              setActiveTab(tab.id);
+              if (tab.id === 'results') { refetchResponses(); refetchAnalytics(); }
+            }}
+            className={`relative px-3.5 py-1.5 rounded-lg text-[12px] font-semibold transition-all duration-150 ${
+              activeTab === tab.id
+                ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100'
+                : 'text-neutral-500 dark:text-neutral-450 hover:text-neutral-800 dark:hover:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-850'
+            }`}
+          >
+            {tab.label}
+            {activeTab === tab.id && (
+              <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" />
+            )}
+          </button>
+        ))}
+      </nav>
+
+      {/* Right: Actions */}
+      <div className="flex items-center gap-2">
+        {/* Theme toggle */}
+        {themeMounted && (
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="h-7 w-7 flex items-center justify-center rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all"
+            title="Toggle theme"
+          >
+            {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+          </button>
+        )}
+
+        {/* Preview */}
         <button
-          onClick={() => toast.info('Premium plans tier active!')}
-          className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 shadow-xs hover:bg-emerald-500/15 transition-all uppercase tracking-wider"
+          onClick={onPreviewOpen}
+          className="flex items-center gap-1.5 h-7 px-3 rounded-lg text-[11px] font-bold text-neutral-600 dark:text-neutral-350 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-750 border border-neutral-200 dark:border-neutral-700 transition-all active:scale-95"
         >
-          View plans
+          <Eye className="h-3 w-3" />
+          Preview
         </button>
 
+        {/* Publish */}
         <button
           onClick={onPublishToggle}
-          className={`text-xs font-semibold px-4 py-1.5 h-8 rounded-lg transition-all ${
+          className={`flex items-center gap-1.5 h-7 px-3.5 rounded-lg text-[11px] font-bold transition-all active:scale-95 ${
             isPublished
-              ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300'
-              : 'bg-primary hover:bg-primary/95 text-primary-foreground font-bold shadow-md shadow-primary/10'
+              ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
+              : 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 shadow-sm'
           }`}
         >
-          {isPublished ? 'Unpublish' : 'Publish'}
+          {isPublished ? (
+            <><Globe className="h-3 w-3" /><span>Published</span></>
+          ) : (
+            <><Zap className="h-3 w-3" /><span>Publish</span></>
+          )}
         </button>
 
-        <div className="h-7 w-7 rounded-full bg-neutral-800 dark:bg-neutral-700 text-white flex items-center justify-center text-xs font-bold select-none shadow-xs">
+        {/* Avatar */}
+        <div
+          className="h-7 w-7 rounded-full bg-gradient-to-br from-primary to-primary/70 text-white flex items-center justify-center text-[11px] font-bold shadow-sm"
+          title={userName || 'User'}
+        >
           {userName ? userName.charAt(0).toUpperCase() : 'U'}
         </div>
       </div>

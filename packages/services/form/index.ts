@@ -107,26 +107,87 @@ class FormService {
       }
     }
 
-    const [newForm] = await db
-      .insert(formsTable)
-      .values({
-        userId,
-        title: validated.title,
-        description: validated.description || null,
-        slug,
-        visibility: validated.visibility,
-        theme: validated.theme,
-        expiresAt: validated.expiresAt ?? null,
-        maxResponses: validated.maxResponses ?? null,
-        isPublished: false, // forms start unpublished
-        notifyCreator: validated.notifyCreator ?? false,
-        notifyRespondent: validated.notifyRespondent ?? false,
-      })
-      .returning();
+    const newForm = await db.transaction(async (tx) => {
+      const [form] = await tx
+        .insert(formsTable)
+        .values({
+          userId,
+          title: validated.title,
+          description: validated.description || null,
+          slug,
+          visibility: validated.visibility,
+          theme: validated.theme,
+          expiresAt: validated.expiresAt ?? null,
+          maxResponses: validated.maxResponses ?? null,
+          isPublished: false, // forms start unpublished
+          notifyCreator: validated.notifyCreator ?? false,
+          notifyRespondent: validated.notifyRespondent ?? false,
+        })
+        .returning();
 
-    if (!newForm) {
-      throw new Error("Failed to create form");
-    }
+      if (!form) {
+        throw new Error("Failed to create form");
+      }
+
+      // Add a single beautiful Welcome Screen field by default
+      await tx.insert(formFieldsTable).values({
+        formId: form.id,
+        label: "Welcome to our form",
+        type: "welcome",
+        required: false,
+        orderIndex: 0,
+        validation: {
+          description: "We are excited to hear from you. Please click Start to begin!",
+          buttonText: "Start Survey",
+          buttonBgColor: "#10b981",
+          buttonTextColor: "#ffffff",
+          showStatsBadge: true,
+          statsTime: "2 mins",
+          socialProof: [
+            { name: "Stripe", logo: "https://img.icons8.com/color/48/stripe.png" },
+            { name: "Google", logo: "https://img.icons8.com/color/48/google-logo.png" },
+            { name: "Slack", logo: "https://img.icons8.com/color/48/slack-new.png" },
+            { name: "Airbnb", logo: "https://img.icons8.com/color/48/airbnb.png" }
+          ],
+          creatorProfile: {
+            name: "Sarah Chen",
+            role: "Product Director",
+            avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150&q=80",
+            quote: "\"Your feedback directly shapes our product journey. Thank you for building the future with us!\""
+          },
+          features: [
+            "Takes less than 2 minutes to complete",
+            "100% anonymous & secure feedback",
+            "Get a premium reward code at the end"
+          ]
+        },
+      });
+
+      // Add a single beautiful Ending Screen field by default
+      await tx.insert(formFieldsTable).values({
+        formId: form.id,
+        label: "Response Submitted!",
+        type: "thank_you",
+        required: false,
+        orderIndex: 1,
+        validation: {
+          description: "Thank you so much! Your answers have been successfully recorded and our team is already reviewing them.",
+          buttonText: "Visit our website",
+          buttonBgColor: "#6366f1",
+          buttonTextColor: "#ffffff",
+          redirectUrl: "https://google.com",
+          socialShare: true,
+          promoCard: {
+            title: "Claim Your Reward! 🎁",
+            description: "As a thank you, use code WELCOME10 at checkout for 10% off your next purchase.",
+            linkText: "Claim Reward",
+            linkUrl: "https://stripe.com"
+          }
+        },
+      });
+
+      return form;
+    });
 
     return newForm;
   }
@@ -2009,19 +2070,75 @@ class FormService {
         throw new Error("Failed to insert form from template");
       }
 
-      // 2b. Add template fields to the new form ID
-      if (template.fields.length > 0) {
-        await tx.insert(formFieldsTable).values(
-          template.fields.map((field, index) => ({
-            formId: newForm.id,
-            label: field.label,
-            type: field.type,
-            required: field.required,
-            orderIndex: index,
-            validation: field.validation || null,
-          }))
-        );
-      }
+      // 2b. Add template fields with prepended Welcome Screen and appended Ending Screen
+      const fieldsToInsert = [
+        // Prepend Welcome Screen
+        {
+          formId: newForm.id,
+          label: "Welcome to our form",
+          type: "welcome" as const,
+          required: false,
+          orderIndex: 0,
+          validation: {
+            description: `Thank you for taking the time to fill out the ${template.name}. Click Start to begin!`,
+            buttonText: "Start Survey",
+            buttonBgColor: "#10b981",
+            buttonTextColor: "#ffffff",
+            showStatsBadge: true,
+            statsTime: "2 mins",
+            socialProof: [
+              { name: "Stripe", logo: "https://img.icons8.com/color/48/stripe.png" },
+              { name: "Google", logo: "https://img.icons8.com/color/48/google-logo.png" },
+              { name: "Slack", logo: "https://img.icons8.com/color/48/slack-new.png" },
+              { name: "Airbnb", logo: "https://img.icons8.com/color/48/airbnb.png" }
+            ],
+            creatorProfile: {
+              name: "Sarah Chen",
+              role: "Product Director",
+              avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150&q=80",
+              quote: "\"Your feedback directly shapes our product journey. Thank you for building the future with us!\""
+            },
+            features: [
+              "Takes less than 2 minutes to complete",
+              "100% anonymous & secure feedback",
+              "Get a premium reward code at the end"
+            ]
+          },
+        },
+        // Mapped template questions (shifted orderIndex by 1)
+        ...template.fields.map((field, index) => ({
+          formId: newForm.id,
+          label: field.label,
+          type: field.type,
+          required: field.required,
+          orderIndex: index + 1,
+          validation: field.validation || null,
+        })),
+        // Append Ending Screen
+        {
+          formId: newForm.id,
+          label: "Response Submitted!",
+          type: "thank_you" as const,
+          required: false,
+          orderIndex: template.fields.length + 1,
+          validation: {
+            description: "Thank you so much! Your answers have been successfully recorded and our team is already reviewing them.",
+            buttonText: "Visit our website",
+            buttonBgColor: "#6366f1",
+            buttonTextColor: "#ffffff",
+            redirectUrl: "https://google.com",
+            socialShare: true,
+            promoCard: {
+              title: "Claim Your Reward! 🎁",
+              description: "As a thank you, use code WELCOME10 at checkout for 10% off your next purchase.",
+              linkText: "Claim Reward",
+              linkUrl: "https://stripe.com"
+            }
+          },
+        }
+      ];
+
+      await tx.insert(formFieldsTable).values(fieldsToInsert);
 
       return newForm;
     });
@@ -2656,16 +2773,283 @@ export interface FormTemplate {
 
 export const FORM_TEMPLATES: FormTemplate[] = [
   {
-    id: "customer-feedback",
-    name: "Customer Satisfaction Survey",
-    description: "Gather feedback from your users to improve your product or service.",
+    id: "startup-feedback",
+    name: "Startup Feedback Form",
+    description: "Gather feedback from your users to improve your startup product or service.",
+    category: "Feedback",
+    theme: "default",
+    fields: [
+      { label: "What is your full name?", type: "short_text", required: true },
+      { label: "What is your work email address?", type: "email", required: true },
+      { label: "What is the name of your startup or company?", type: "short_text", required: true },
+      {
+        label: "What industry best describes your company?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["SaaS", "E-commerce", "AI / ML", "Web3 / Crypto", "Fintech", "Healthtech", "Agency / Consulting", "Other"] },
+      },
+      {
+        label: "How did you first hear about our product?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Twitter / X", "LinkedIn", "Product Hunt", "Friend referral", "Search engine", "Online Advertisement"] },
+      },
+      {
+        label: "How long have you been using our platform?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Less than a week", "1-4 weeks", "1-3 months", "More than 3 months"] },
+      },
+      {
+        label: "How likely are you to recommend us to a friend or colleague?",
+        type: "rating",
+        required: true,
+        validation: { max: 5 },
+      },
+      { label: "What is the single biggest benefit or value you get from using our product?", type: "long_text", required: true },
+      {
+        label: "Which area needs the most improvement?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Performance & Speed", "Customer Support", "User Interface & Usability", "Pricing Plans", "Missing Core Features"] },
+      },
+      { label: "Please share any additional feedback, feature requests, or suggestions.", type: "long_text", required: false },
+    ],
+  },
+  {
+    id: "anime-fan-survey",
+    name: "⭐ Anime Fan Survey",
+    description: "Connect with the community and share your thoughts on favorite anime series and genres.",
+    category: "Entertainment",
+    theme: "cyberpunk",
+    fields: [
+      { label: "What is your nickname or fan handle?", type: "short_text", required: true },
+      { label: "What is your email address?", type: "email", required: false },
+      { label: "Who is your absolute favorite anime character of all time?", type: "short_text", required: true },
+      {
+        label: "What are your favorite genres of anime?",
+        type: "multi_select",
+        required: true,
+        validation: { options: ["Shonen", "Shojo", "Seinen", "Isekai", "Slice of Life", "Mecha", "Fantasy", "Sci-Fi", "Psychological"] },
+      },
+      { label: "How many anime series have you watched completely?", type: "number", required: true, validation: { min: 0 } },
+      {
+        label: "How would you rate the current season's anime releases overall?",
+        type: "rating",
+        required: true,
+        validation: { max: 5 },
+      },
+      {
+        label: "Do you read Manga or Light Novels in addition to watching anime?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Yes - both manga and light novels", "Yes - manga only", "Yes - light novels only", "No - anime only"] },
+      },
+      {
+        label: "Have you ever attended an anime convention or dressed up in cosplay?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Yes - both convention and cosplay", "Yes - attended conventions only", "Yes - cosplayed only", "No - neither"] },
+      },
+      { label: "Tell us about the first anime that got you hooked on the medium.", type: "long_text", required: true },
+      {
+        label: "Which streaming platform do you use most frequently to watch anime?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Crunchyroll", "Netflix", "Hulu", "Prime Video", "YouTube", "Physical Media / Blu-ray"] },
+      },
+    ],
+  },
+  {
+    id: "gaming-tournament",
+    name: "⭐ Gaming Tournament Registration",
+    description: "Register players, collect gamertags, ranks, and contact info for competitive esports tournaments.",
+    category: "Esports",
+    theme: "cyberpunk",
+    fields: [
+      { label: "What is your full name?", type: "short_text", required: true },
+      { label: "What is your primary contact email?", type: "email", required: true },
+      { label: "What is your in-game name (IGN) or Gamertag?", type: "short_text", required: true },
+      { label: "What is your Discord username (for tournament updates and coordination)?", type: "short_text", required: true },
+      {
+        label: "Which platform do you play on?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["PC", "PlayStation 5", "Xbox Series X/S", "Nintendo Switch", "Mobile"] },
+      },
+      {
+        label: "What is your current competitive rank?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Bronze", "Silver", "Gold", "Platinum", "Diamond", "Master / Challenger"] },
+      },
+      {
+        label: "What is your primary gaming input method?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Keyboard & Mouse", "Controller", "Touch Screen", "Specialized Input Device"] },
+      },
+      { label: "How many hours do you play per week on average?", type: "number", required: true, validation: { min: 0, max: 168 } },
+      {
+        label: "Have you participated in esports tournaments before?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Yes - amateur tournaments", "Yes - professional tournaments", "No - this is my first tournament"] },
+      },
+      { label: "I agree to follow the tournament rules, anti-cheat policy, and fair play guidelines.", type: "checkbox", required: true },
+    ],
+  },
+  {
+    id: "ai-product-waitlist",
+    name: "⭐ AI Product Waitlist",
+    description: "Launch your next generative AI tool with a high-converting waitlist capture form.",
+    category: "Startup",
+    theme: "sunset",
+    fields: [
+      { label: "What is your full name?", type: "short_text", required: true },
+      { label: "What is your email address?", type: "email", required: true },
+      {
+        label: "What is your primary role or occupation?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Software Engineer", "Founder / Executive", "Product Manager", "Designer / Creator", "Marketer", "Researcher", "Student", "Other"] },
+      },
+      {
+        label: "Which upcoming AI feature are you most excited to try first?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Real-time Voice Agents", "AI Code Generation", "Advanced Analytics", "Multi-modal Image Agents", "Workflow Automation"] },
+      },
+      {
+        label: "What is your primary use case?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Personal productivity", "Startup / Small Business", "Enterprise / Corporate"] },
+      },
+      { label: "How many members are in your team?", type: "number", required: true, validation: { min: 1, max: 100 } },
+      {
+        label: "Are you currently using any other generative AI tools in your workflow?",
+        type: "multi_select",
+        required: true,
+        validation: { options: ["ChatGPT Plus", "Claude Pro", "Gemini Advanced", "Midjourney", "Cursor / GitHub Copilot", "None"] },
+      },
+      {
+        label: "How likely are you to pay for a premium subscription if the tool solves your needs?",
+        type: "rating",
+        required: true,
+        validation: { max: 5 },
+      },
+      { label: "Tell us briefly about the specific workflow you hope this AI tool will automate for you.", type: "long_text", required: false },
+    ],
+  },
+  {
+    id: "developer-survey",
+    name: "⭐ Developer Survey",
+    description: "Poll software engineers about preferred languages, tooling, and developer experience satisfaction.",
+    category: "Developer",
+    theme: "retro",
+    fields: [
+      {
+        label: "What is your primary programming language?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["TypeScript / JavaScript", "Python", "Go", "Rust", "Java", "C++", "C#", "Ruby", "PHP", "Swift"] },
+      },
+      {
+        label: "What is your secondary programming language?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["TypeScript / JavaScript", "Python", "Go", "Rust", "Java", "C++", "C#", "Ruby", "PHP", "Swift", "None"] },
+      },
+      { label: "How many years of professional coding experience do you have?", type: "number", required: true, validation: { min: 0 } },
+      {
+        label: "Which editor or IDE do you use most frequently?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["VS Code", "Cursor", "Neovim", "IntelliJ IDEA / WebStorm", "Xcode", "Vim / Emacs"] },
+      },
+      {
+        label: "Which OS is your primary development machine?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["macOS", "Linux", "Windows (WSL)", "Windows (Native)"] },
+      },
+      {
+        label: "What is your preferred state management paradigm?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Redux / Zustand", "React Context API", "MobX / Signals", "State Machines (XState)", "Prop Drilling / None"] },
+      },
+      {
+        label: "Rate your current developer experience (DX) when building full-stack web applications",
+        type: "rating",
+        required: true,
+        validation: { max: 5 },
+      },
+      {
+        label: "How do you feel about writing tests for your codebase?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["I love it - absolute necessity", "I write them because I have to", "I only write unit tests", "I avoid writing tests if possible"] },
+      },
+      { label: "What is the single biggest friction point in your current software development lifecycle?", type: "long_text", required: true },
+    ],
+  },
+  {
+    id: "hackathon-registration",
+    name: "⭐ Hackathon Registration Form",
+    description: "Gather team details, hacker skill sets, and project ideas for standard hackathons.",
+    category: "Registration",
+    theme: "retro",
+    fields: [
+      { label: "What is your full name?", type: "short_text", required: true },
+      { label: "What is your contact email address?", type: "email", required: true },
+      {
+        label: "What is your primary role in a hackathon team?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Frontend Developer", "Backend Developer", "Full Stack Developer", "UI/UX Designer", "Product Manager", "Data Scientist"] },
+      },
+      {
+        label: "What is your level of experience in software development?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Beginner / Student", "Intermediate / Hobbyist", "Advanced / Industry Professional"] },
+      },
+      {
+        label: "Do you have an existing team or are you looking for one?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["I already have a full team", "I want to find a team during team matching"] },
+      },
+      { label: "Link to your GitHub profile, portfolio, or LinkedIn", type: "short_text", required: true },
+      {
+        label: "Any dietary restrictions or requirements?",
+        type: "multi_select",
+        required: true,
+        validation: { options: ["Vegetarian", "Vegan", "Gluten-Free", "Nut-Free", "Halal", "Kosher", "None"] },
+      },
+      {
+        label: "What shirt size should we prepare for your swag bag?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["XS", "S", "M", "L", "XL", "XXL"] },
+      },
+      { label: "Please share any abstract project ideas or themes you are excited to build.", type: "long_text", required: false },
+      { label: "I agree to follow the hackathon code of conduct and safety regulations.", type: "checkbox", required: true },
+    ],
+  },
+  {
+    id: "customer-satisfaction",
+    name: "⭐ Customer Satisfaction Survey",
+    description: "Gather detailed user feedback and Net Promoter Scores to improve product quality.",
     category: "Feedback",
     theme: "default",
     fields: [
       { label: "What is your full name?", type: "short_text", required: true },
       { label: "What is your email address?", type: "email", required: true },
       {
-        label: "How would you rate your overall experience?",
+        label: "How would you rate your overall experience with our service?",
         type: "rating",
         required: true,
         validation: { max: 5 },
@@ -2674,33 +3058,117 @@ export const FORM_TEMPLATES: FormTemplate[] = [
         label: "Which area needs the most improvement?",
         type: "single_select",
         required: true,
-        validation: { options: ["Product Speed", "Customer Support", "User Interface", "Pricing", "Other"] },
+        validation: { options: ["Product Speed & Performance", "Customer Support Response", "User Interface & Usability", "Pricing Plans", "Feature Requests"] },
       },
-      { label: "Please share any additional comments or suggestions.", type: "long_text", required: false },
+      {
+        label: "How often do you use our product?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Daily", "Several times a week", "Once a week", "Monthly", "Rarely"] },
+      },
+      {
+        label: "Were you able to find what you were looking for on our platform?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Yes - easily", "Yes - with some effort", "No - had to contact support"] },
+      },
+      {
+        label: "How would you rate the quality of our customer support?",
+        type: "rating",
+        required: false,
+        validation: { max: 5 },
+      },
+      { label: "Please share any additional comments, suggestions, or feature requests.", type: "long_text", required: false },
     ],
   },
   {
-    id: "event-registration",
-    name: "Event Registration & RSVP",
-    description: "Collect sign-ups and dietary preferences for your next event or meetup.",
+    id: "event-registration-rsvp",
+    name: "⭐ Event Registration Form",
+    description: "Collect sign-ups, RSVPs, dietary options, and guest counts for in-person and virtual events.",
     category: "Registration",
-    theme: "neon",
+    theme: "sunset",
     fields: [
-      { label: "Attendee Name", type: "short_text", required: true },
+      { label: "Attendee Full Name", type: "short_text", required: true },
       { label: "Contact Email", type: "email", required: true },
+      { label: "Phone Number (for urgent event updates)", type: "short_text", required: false },
       {
         label: "Will you be attending in person or virtually?",
         type: "single_select",
         required: true,
-        validation: { options: ["In-Person", "Virtual"] },
+        validation: { options: ["In-Person Attendance", "Virtual Streaming / RSVP Only"] },
       },
       {
         label: "Any dietary restrictions or requirements?",
         type: "multi_select",
-        required: false,
-        validation: { options: ["Vegetarian", "Vegan", "Gluten-Free", "Nut-Free", "Halal", "Kosher"] },
+        required: true,
+        validation: { options: ["Vegetarian", "Vegan", "Gluten-Free", "Nut-Free", "Halal", "Kosher", "None"] },
       },
-      { label: "How many guests will you be bringing?", type: "number", required: false, validation: { min: 0, max: 5 } },
+      { label: "How many guests will you be bringing with you?", type: "number", required: true, validation: { min: 0, max: 5 } },
+      {
+        label: "How did you hear about this event?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Social Media", "Newsletter / Email", "Friend / Word of mouth", "Meetup.com", "Other"] },
+      },
+      { label: "Would you like to receive notifications about future events?", type: "checkbox", required: false },
+    ],
+  },
+  {
+    id: "bug-report",
+    name: "⭐ Bug Report Form",
+    description: "Create an organized workflow for QA, testers, and users to submit software bug reports.",
+    category: "Developer",
+    theme: "retro",
+    fields: [
+      { label: "Provide a short, descriptive title of the bug", type: "short_text", required: true },
+      {
+        label: "What is the severity of this issue?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Low (Visual/Text issue)", "Medium (Workaround exists)", "High (Core feature broken)", "Critical (Blocker/Crash)"] },
+      },
+      {
+        label: "What environment did this occur in?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Production", "Staging / UAT", "Local Development"] },
+      },
+      { label: "Steps to reproduce the bug", type: "long_text", required: true },
+      { label: "Expected behavior description", type: "long_text", required: true },
+      { label: "Actual behavior description", type: "long_text", required: true },
+      { label: "What operating system and version were you using?", type: "short_text", required: true },
+      { label: "What web browser and version were you using?", type: "short_text", required: true },
+      {
+        label: "Is this bug consistently reproducible?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Yes - every time", "Yes - intermittently", "No - only happened once"] },
+      },
+    ],
+  },
+  {
+    id: "discord-community-app",
+    name: "⭐ Discord Community Application",
+    description: "Process moderator applications and acceptances for highly-curated Discord servers.",
+    category: "Registration",
+    theme: "default",
+    fields: [
+      { label: "What is your Discord username?", type: "short_text", required: true },
+      { label: "How old are you?", type: "number", required: true, validation: { min: 13 } },
+      { label: "Why would you like to join or moderate our community?", type: "long_text", required: true },
+      {
+        label: "What skills or value do you hope to bring to the community?",
+        type: "multi_select",
+        required: true,
+        validation: { options: ["Coding / Development", "Art / Design", "Writing / Content", "Moderation", "Event Hosting", "Networking / Chatting"] },
+      },
+      {
+        label: "How did you hear about our community?",
+        type: "single_select",
+        required: true,
+        validation: { options: ["Twitter / X", "YouTube", "GitHub", "Friend referral", "Search Engine"] },
+      },
+      { label: "I agree to follow the community rules and code of conduct", type: "checkbox", required: true },
     ],
   },
   {
@@ -2708,7 +3176,7 @@ export const FORM_TEMPLATES: FormTemplate[] = [
     name: "Product Market Fit (PMF) Survey",
     description: "Measure the PMF score of your startup using the standard Sean Ellis question template.",
     category: "Marketing",
-    theme: "modern",
+    theme: "forest",
     fields: [
       {
         label: "How would you feel if you could no longer use this product?",

@@ -1,5 +1,6 @@
 export interface ThemeStyles {
   backgroundColor: string;
+  backgroundImage?: string;
   textColor: string;
   primaryColor: string;
   buttonBgColor: string;
@@ -10,6 +11,8 @@ export interface ThemeStyles {
   inputBorderColor: string;
   /** Semi-transparent primary for selected state backgrounds */
   glow: string;
+  fontSize?: string;
+  fontWeight?: string | number;
 }
 
 export interface FormField {
@@ -24,7 +27,16 @@ export interface FormField {
     | "multi_select"
     | "checkbox"
     | "rating"
-    | "date";
+    | "date"
+    | "contact_info"
+    | "address"
+    | "website"
+    | "dropdown"
+    | "yes_no"
+    | "ranking"
+    | "welcome"
+    | "thank_you"
+    | "statement";
   required: boolean;
   orderIndex: number;
   validation?: Record<string, unknown> | null;
@@ -37,7 +49,12 @@ export interface FormData {
   slug: string;
   theme: string;
   isPublished: boolean;
-  visibility: "public" | "unlisted";
+  visibility: "public" | "unlisted" | string;
+  expiresAt?: string | Date | null;
+  maxResponses?: number | null;
+  isArchived?: boolean;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }
 
 export interface LogicRule {

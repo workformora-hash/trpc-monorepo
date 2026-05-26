@@ -10,8 +10,10 @@ export const THEME_FONTS: Record<string, string> = {
     "@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');",
   retro:
     "@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap');",
-  default: "",
-  dark: "",
+  default: "@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Inter:wght@300;400;600;700&family=Outfit:wght@300;400;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Roboto+Mono:wght@400;700&display=swap');",
+  dark: "@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Inter:wght@300;400;600;700&family=Outfit:wght@300;400;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Roboto+Mono:wght@400;700&display=swap');",
+  japanese:
+    "@import url('https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;500;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap');",
 };
 
 const THEME_MAP: Record<string, ThemeStyles> = {
@@ -87,8 +89,54 @@ const THEME_MAP: Record<string, ThemeStyles> = {
     inputBorderColor: "#00CC52",
     glow: "rgba(0,255,102,0.2)",
   },
+  japanese: {
+    backgroundColor: "#F9F4F0",
+    backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40a20 20 0 0 1 20-20 20 20 0 0 1 20 20H0zm20-20a20 20 0 0 1 20-20V0a20 20 0 0 1-20 20 20 20 0 0 1-20-20v20a20 20 0 0 1 20 20z' fill='%23d4c4b0' fill-opacity='0.08' fill-rule='evenodd'/%3E%3C/svg%3E\")",
+    textColor: "#1A1A1A",
+    primaryColor: "#BC243C",
+    buttonBgColor: "#BC243C",
+    buttonTextColor: "#FFFFFF",
+    fontFamily: "'Zen Old Mincho', serif",
+    cardBgColor: "#FFFFFF",
+    inputBgColor: "#FFFFFF",
+    inputBorderColor: "#D4C4B0",
+    glow: "rgba(188, 36, 60, 0.12)",
+  },
 };
 
+function normalizeThemeId(rawThemeId: string): string {
+  const value = (rawThemeId || "").trim();
+  if (!value) return "default";
+  const lowered = value.toLowerCase();
+  if (lowered === "japan" || lowered === "jp" || lowered === "japanese-theme") {
+    return "japanese";
+  }
+  return lowered;
+}
+
+export function getThemeFontImport(themeId: string): string {
+  const normalized = normalizeThemeId(themeId);
+  return THEME_FONTS[normalized] || THEME_FONTS.default || "";
+}
+
 export function getThemeStyles(themeId: string): ThemeStyles {
-  return THEME_MAP[themeId] ?? THEME_MAP.default!;
+  const base = THEME_MAP.default!;
+  if (themeId && themeId.startsWith('{')) {
+    try {
+      const custom = JSON.parse(themeId);
+      const chosenTheme = normalizeThemeId(custom.baseTheme || "default");
+      const themeBase = THEME_MAP[chosenTheme] ?? base;
+      return {
+        ...themeBase,
+        ...custom,
+        textColor: custom.textColor || themeBase.textColor,
+        fontFamily: custom.fontFamily || themeBase.fontFamily,
+        fontSize: custom.fontSize || '16px',
+      };
+    } catch (e) {
+      console.error("Failed to parse custom theme configuration", e);
+    }
+  }
+  const normalized = normalizeThemeId(themeId);
+  return THEME_MAP[normalized] ?? base;
 }

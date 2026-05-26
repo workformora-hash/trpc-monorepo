@@ -1,23 +1,38 @@
-'use client';
+import Link from 'next/link';
 
 export function Footer() {
   const sections = [
     {
       title: 'Product',
-      links: ['Features', 'Pricing', 'Integrations', 'API Docs'],
+      links: [
+        { label: 'Features', href: '/#features' },
+        { label: 'Pricing', href: '/#pricing' },
+        { label: 'Explore Gallery', href: '/explore' },
+        { label: 'Templates Gallery', href: '/templates' },
+      ],
     },
     {
       title: 'Company',
-      links: ['About', 'Blog', 'Careers', 'Contact'],
+      links: [
+        { label: 'About', href: '#' },
+        { label: 'Blog', href: '#' },
+        { label: 'Careers', href: '#' },
+        { label: 'Contact', href: '#' },
+      ],
     },
     {
       title: 'Legal',
-      links: ['Privacy', 'Terms', 'Security', 'Compliance'],
+      links: [
+        { label: 'Privacy', href: '#' },
+        { label: 'Terms', href: '#' },
+        { label: 'Security', href: '#' },
+        { label: 'Compliance', href: '#' },
+      ],
     },
   ];
 
   return (
-    <footer className="border-t border-border px-6 sm:px-8 py-12 sm:py-16 bg-muted/30">
+    <footer className="border-t border-border px-6 sm:px-8 py-12 sm:py-16 bg-muted/30 text-left">
       <div className="mx-auto max-w-6xl">
         <div className="grid md:grid-cols-4 gap-8 mb-12">
           <div>
@@ -32,10 +47,10 @@ export function Footer() {
               <h4 className="font-semibold text-foreground text-sm mb-4">{section.title}</h4>
               <ul className="space-y-2">
                 {section.links.map((link) => (
-                  <li key={link}>
-                    <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                      {link}
-                    </a>
+                  <li key={link.label}>
+                    <Link href={link.href} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      {link.label}
+                    </Link>
                   </li>
                 ))}
               </ul>

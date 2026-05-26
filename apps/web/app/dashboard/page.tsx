@@ -49,7 +49,8 @@ export default function DashboardPage() {
     }
   });
 
-  const [activeTab, setActiveTab] = useState<'forms' | 'explore' | 'profile'>('forms');
+  const [activeTab, setActiveTab] = useState<'forms' | 'explore' | 'templates' | 'profile'>('forms');
+  const [cloningTemplateId, setCloningTemplateId] = useState<string | null>(null);
 
   // Queries for Creator Dashboard
   const { 
@@ -61,6 +62,28 @@ export default function DashboardPage() {
     data: exploreFormsData,
     isLoading: exploreLoading
   } = trpc.form.listExploreForms.useQuery({}, { enabled: !!user && activeTab === 'explore' });
+
+  const {
+    data: templatesData = [],
+    isLoading: templatesLoading
+  } = trpc.form.listFormTemplates.useQuery(undefined, { enabled: !!user && activeTab === 'templates' });
+
+  // Mutation to clone a template
+  const createFormFromTemplate = trpc.form.createFormFromTemplate.useMutation({
+    onSuccess: (data) => {
+      toast.success("Successfully created form from template!");
+      router.push(`/dashboard/form/${data.form.id}`);
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to create form from template.");
+      setCloningTemplateId(null);
+    }
+  });
+
+  const handleUseTemplate = (templateId: string) => {
+    setCloningTemplateId(templateId);
+    createFormFromTemplate.mutate({ templateId });
+  };
 
   const forms = creatorFormsData?.forms || [];
 
@@ -139,6 +162,14 @@ export default function DashboardPage() {
                 <Globe className="h-4 w-4" /> Explore Gallery
               </button>
               <button 
+                onClick={() => setActiveTab('templates')}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
+                  activeTab === 'templates' ? 'bg-primary text-primary-foreground font-medium' : 'dark:text-neutral-400 text-muted-foreground dark:hover:text-neutral-100 hover:text-foreground dark:hover:bg-neutral-900 hover:bg-neutral-200/50'
+                }`}
+              >
+                <Sparkles className="h-4 w-4" /> Templates Gallery
+              </button>
+              <button 
                 onClick={() => setActiveTab('profile')}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
                   activeTab === 'profile' ? 'bg-primary text-primary-foreground font-medium' : 'dark:text-neutral-400 text-muted-foreground dark:hover:text-neutral-100 hover:text-foreground dark:hover:bg-neutral-900 hover:bg-neutral-200/50'
@@ -190,6 +221,61 @@ export default function DashboardPage() {
                       No public forms found in explore gallery yet. Be the first to publish one!
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ACTIVE TAB: TEMPLATES GALLERY */}
+          {activeTab === 'templates' && (
+            <div className="space-y-8 max-w-5xl mx-auto animate-fadeIn">
+              <div>
+                <h1 className="text-3xl font-light tracking-tight dark:text-neutral-100 text-foreground">Templates Gallery</h1>
+                <p className="dark:text-neutral-400 text-muted-foreground text-sm mt-1">Select a pre-made form blueprint to jumpstart your workflow.</p>
+              </div>
+
+              {templatesLoading ? (
+                <div className="flex h-64 items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {templatesData.map((template) => (
+                    <div 
+                      key={template.id} 
+                      className="dark:bg-neutral-900 bg-white border dark:border-neutral-850 border-neutral-200 p-6 rounded-2xl hover:border-primary/50 transition-all flex flex-col justify-between h-64 shadow-xs text-left"
+                    >
+                      <div>
+                        <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Feedback blueprint</span>
+                        <h3 className="text-base font-semibold dark:text-neutral-100 text-neutral-800 mt-2 line-clamp-1">{template.name}</h3>
+                        <p className="text-xs dark:text-neutral-400 text-neutral-500 mt-2 line-clamp-2 leading-relaxed">{template.description}</p>
+                        
+                        <div className="mt-3 text-[10px] dark:text-neutral-500 text-neutral-400 font-bold">
+                          Includes {template.fields.length} questions
+                        </div>
+                      </div>
+
+                      <div className="pt-4 border-t dark:border-neutral-800 border-neutral-100 mt-4">
+                        <Button
+                          disabled={cloningTemplateId !== null}
+                          onClick={() => handleUseTemplate(template.id)}
+                          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold h-9 flex items-center justify-center gap-1.5 rounded-lg"
+                        >
+                          {cloningTemplateId === template.id ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <span>Creating draft...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>Use this blueprint</span>
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

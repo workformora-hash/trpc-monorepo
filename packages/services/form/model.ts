@@ -162,6 +162,9 @@ export const fieldTypeSchema = z.enum([
   "dropdown",
   "yes_no",
   "ranking",
+  "welcome",
+  "thank_you",
+  "statement",
 ]);
 
 export const addFormFieldInput = z.object({

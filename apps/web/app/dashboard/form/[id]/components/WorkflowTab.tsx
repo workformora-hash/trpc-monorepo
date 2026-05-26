@@ -9,7 +9,7 @@ interface Form {
   title: string;
   description?: string | null;
   slug: string;
-  visibility: 'public' | 'unlisted';
+  visibility: 'public' | 'unlisted' | string;
   maxResponses?: number | null;
   notifyCreator: boolean;
   notifyRespondent: boolean;
@@ -43,7 +43,7 @@ export function WorkflowTab({
   onDuplicateForm,
   onDeleteForm,
 }: WorkflowTabProps) {
-  // Local state for instant/snappy UI feedback (Optimistic Updates)
+  // Local state for instant/snappy UI feedback (Optimistic Updates)        
   const [localNotifyCreator, setLocalNotifyCreator] = React.useState(form.notifyCreator);
   const [localNotifyRespondent, setLocalNotifyRespondent] = React.useState(form.notifyRespondent);
   const [localMaxResponses, setLocalMaxResponses] = React.useState(form.maxResponses);
@@ -84,7 +84,7 @@ export function WorkflowTab({
   };
 
   const handleToggleMaxResponses = () => {
-    if (localMaxResponses !== null && localMaxResponses !== undefined) {
+    if (localMaxResponses !== null && localMaxResponses !== undefined) {    
       setLocalMaxResponses(null);
       onEditForm({ maxResponses: null });
     } else {
@@ -126,11 +126,11 @@ export function WorkflowTab({
         </div>
 
         <div className="space-y-6">
-          
+
           {/* Section 1: General Details */}
           <div className="space-y-4">
             <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">General Metadata</h4>
-            
+
             {/* Form Title */}
             <div className="space-y-1">
               <label className="text-xs font-semibold dark:text-neutral-300 text-neutral-600">Form Title</label>
@@ -165,7 +165,7 @@ export function WorkflowTab({
           </div>
 
           {/* Section 2: Form Link & Visibility */}
-          <div className="space-y-4 pt-4 border-t dark:border-neutral-800">
+          <div className="space-y-4 pt-4 border-t dark:border-neutral-800"> 
             <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
               <Globe className="h-3.5 w-3.5" />
               <span>Link & Discovery</span>
@@ -181,7 +181,7 @@ export function WorkflowTab({
                     type="text"
                     defaultValue={form.slug}
                     onBlur={(e) => {
-                      const val = e.target.value.trim().toLowerCase();
+                      const val = e.target.value.trim().toLowerCase();      
                       if (val && val !== form.slug) {
                         if (!/^[a-z0-9-_]+$/.test(val)) {
                           alert('Slug must contain only lowercase letters, numbers, hyphens, and underscores.');
@@ -202,7 +202,7 @@ export function WorkflowTab({
                 <select
                   value={form.visibility}
                   onChange={(e) => {
-                    const val = e.target.value as 'public' | 'unlisted';
+                    const val = e.target.value as 'public' | 'unlisted';    
                     onEditForm({ visibility: val });
                   }}
                   className="w-full dark:bg-neutral-955 bg-white border dark:border-neutral-800 border-neutral-250 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 dark:text-neutral-200 text-neutral-800 font-semibold transition-all h-[38px]"
@@ -215,7 +215,7 @@ export function WorkflowTab({
           </div>
 
           {/* Section 3: Access Control & Limits */}
-          <div className="space-y-4 pt-4 border-t dark:border-neutral-800">
+          <div className="space-y-4 pt-4 border-t dark:border-neutral-800"> 
             <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
               <Lock className="h-3.5 w-3.5" />
               <span>Access & Submission Control</span>
@@ -309,7 +309,7 @@ export function WorkflowTab({
                         }
                       }}
                       onBlur={(e) => {
-                        const val = parseInt(e.target.value.trim(), 10);
+                        const val = parseInt(e.target.value.trim(), 10);    
                         if (!isNaN(val) && val > 0 && val !== form.maxResponses) {
                           onEditForm({ maxResponses: val });
                         }
@@ -324,7 +324,7 @@ export function WorkflowTab({
           </div>
 
           {/* Section 4: Email Notifications */}
-          <div className="space-y-4 pt-4 border-t dark:border-neutral-800">
+          <div className="space-y-4 pt-4 border-t dark:border-neutral-800"> 
             <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
               <Mail className="h-3.5 w-3.5" />
               <span>Email Notifications</span>
@@ -381,13 +381,14 @@ export function WorkflowTab({
               <Palette className="h-3.5 w-3.5" />
               <span>Form Color Themes</span>
             </h4>
-            
-            <div className="grid grid-cols-4 gap-3">
+
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {[
                 { id: 'default', name: 'Slate', color: 'bg-neutral-850 border-neutral-600' },
                 { id: 'cyberpunk', name: 'Cyberpunk', color: 'bg-purple-650 border-pink-500' },
                 { id: 'ocean', name: 'Ocean', color: 'bg-blue-500 border-sky-450' },
                 { id: 'forest', name: 'Forest', color: 'bg-emerald-650 border-green-450' },
+                { id: 'japanese', name: 'Japanese', color: 'bg-[#F9F4F0] border-[#BC243C]' },
               ].map((t) => (
                 <div
                   key={t.id}
@@ -395,9 +396,9 @@ export function WorkflowTab({
                     setLocalTheme(t.id);
                     onEditForm({ theme: t.id });
                   }}
-                  className={`cursor-pointer py-3 px-2 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all text-center ${
+                  className={`cursor-pointer py-3 px-2 rounded-xl border flex flex-col items-center justify-center gap-2 transition-all text-center ${   
                     localTheme === t.id
-                      ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                      ? 'border-primary bg-primary/5 dark:bg-primary/10'    
                       : 'dark:border-neutral-800 border-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-950'
                   }`}
                 >

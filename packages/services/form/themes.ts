@@ -114,4 +114,20 @@ export const SYSTEM_THEMES: FormTheme[] = [
       inputBorderColor: "#00CC52",
     },
   },
+  {
+    id: "japanese",
+    name: "Washi Paper",
+    description: "Elegant Japanese-inspired theme with washi paper texture and vermillion accents.",
+    styles: {
+      backgroundColor: "#F5F0EB", // Washi paper base
+      textColor: "#2C1810", // Dark brown for text
+      primaryColor: "#C76B5E", // Vermillion accent
+      buttonBgColor: "#C76B5E",
+      buttonTextColor: "#FFFFFF",
+      fontFamily: "Noto Sans JP, sans-serif",
+      cardBgColor: "#FFFFFF",
+      inputBgColor: "#FFFFFF",
+      inputBorderColor: "#D4C4B0", // Subtle washi paper border
+    },
+  },
 ];

@@ -1,22 +1,29 @@
 'use client';
 
-import { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
+import { useRef, useLayoutEffect, useMemo } from 'react';
+import { useThemeMounted } from '~/hooks/use-theme-mounted';
 import { useRouter, useParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
-import { trpc } from '~/trpc/client';
 
-// Shared Page Components
-import { NavigationSidebar } from './components/NavigationSidebar';
-import { QuestionEditor } from './components/QuestionEditor';
-import { SettingsSidebar } from './components/SettingsSidebar';
-import { FormHeader, FormTab } from './components/FormHeader';
+import { useTextareaAutoResize } from '~/hooks/use-textarea-auto-resize';
+import { useFormMutations } from '~/hooks/use-form-mutations';
+import { useFormBuilderState } from '~/hooks/use-form-builder-state';
+import { useAuthRedirect } from '~/hooks/use-auth-redirect';
+
+
+import { trpc } from '~/trpc/client';
+import { FormHeader, type FormTab } from './components/FormHeader';
 import { WorkflowTab } from './components/WorkflowTab';
+import { LogicRulesBuilder } from './components/LogicRulesBuilder';
 import { ConnectTab } from './components/ConnectTab';
 import { ShareTab } from './components/ShareTab';
 import { ResultsTab } from './components/ResultsTab';
 import { ResponseDetailsModal } from './components/ResponseDetailsModal';
+import { FormBuilderContentTab } from './components/FormBuilderContentTab';
+import { FormBuilderProvider } from './components/FormBuilderContext';
+import { FormBuilderLoadingState } from './components/FormBuilderLoadingState';
+import { FormPreviewModal } from './components/FormPreviewModal';
 
 export default function FormBuilderPage() {
   const router = useRouter();
@@ -24,28 +31,8 @@ export default function FormBuilderPage() {
   const formId = params?.id as string;
   const { theme, setTheme } = useTheme();
   const utils = trpc.useUtils();
-  const [themeMounted, setThemeMounted] = useState(false);
-
-  useEffect(() => {
-    setThemeMounted(true);
-  }, []);
-
-  // Authentication and Session Check
-  const { data: userSession, isLoading: sessionLoading } = trpc.auth.getCurrentUser.useQuery();
-  const user = userSession?.user;
-
-  // Redirect if not logged in after session loading completes
-  useEffect(() => {
-    if (!sessionLoading && !user) {
-      toast.error('Please login to access the form builder.');
-      router.push('/login');
-    }
-  }, [user, sessionLoading, router]);
-
-  // High-fidelity active states
-  const [activeFieldId, setActiveFieldId] = useState<string | null>(null);
-  const [activeFormTab, setActiveFormTab] = useState<FormTab>('content');
-  const [selectedResponseDetailId, setSelectedResponseDetailId] = useState<string | null>(null);
+  const themeMounted = useThemeMounted();
+  const { user, sessionLoading } = useAuthRedirect();
 
   // Queries for the specific form
   const {
@@ -68,198 +55,56 @@ export default function FormBuilderPage() {
   const selectedFields = useMemo(() => formDetails?.fields || [], [formDetails?.fields]);
   const selectedResponses = useMemo(() => responsesData?.responses || [], [responsesData?.responses]);
 
-  // Local state for active editing fields to enable fully reactive typing in controlled inputs
-  const [localLabel, setLocalLabel] = useState('');
-  const [localDescription, setLocalDescription] = useState('');
-  const [localChoices, setLocalChoices] = useState<string[]>([]);
+  const {
+    activeFieldId,
+    setActiveFieldId,
+    activeFormTab,
+    setActiveFormTab,
+    selectedResponseDetailId,
+    setSelectedResponseDetailId,
+    previewOpen,
+    setPreviewOpen,
+    localLabel,
+    setLocalLabel,
+    localDescription,
+    setLocalDescription,
+    localChoices,
+    setLocalChoices,
+    activeField,
+    activeFieldIndex,
+    activeValidation,
+    initialActiveChoices: activeChoices,
+  } = useFormBuilderState({ selectedFields, formDetails });
 
-  // Refs for auto-resizing textareas
-  const labelRef = useRef<HTMLTextAreaElement>(null);
-  const descRef = useRef<HTMLTextAreaElement>(null);
+  const labelRef = useTextareaAutoResize(localLabel, [activeFieldId]);
+  const descRef = useTextareaAutoResize(localDescription, [activeFieldId]);
 
-  const resizeTextarea = (textarea: HTMLTextAreaElement | null) => {
-    if (!textarea) return;
-
-    // Maintain parent scroll position to prevent "jumping"
-    const parent = textarea.closest('main');
-    const scrollPos = parent ? parent.scrollTop : 0;
-
-    textarea.style.height = 'auto';
-    textarea.style.height = `${textarea.scrollHeight}px`;
-
-    if (parent) {
-      parent.scrollTop = scrollPos;
-    }
-  };
-
-  useLayoutEffect(() => {
-    if (localLabel !== undefined) {
-      resizeTextarea(labelRef.current);
-    }
-  }, [localLabel, activeFieldId]); // Also resize when switching fields
-
-  useLayoutEffect(() => {
-    if (localDescription !== undefined) {
-      resizeTextarea(descRef.current);
-    }
-  }, [localDescription, activeFieldId]);
-
-  useEffect(() => {
-    const active = selectedFields.find((f) => f.id === activeFieldId) || selectedFields[0];
-    if (active) {
-      setLocalLabel(active.label || '');
-      const validation = (active.validation as Record<string, unknown>) || {};
-      setLocalDescription(typeof validation.description === 'string' ? validation.description : '');
-      setLocalChoices(Array.isArray(validation.choices) ? (validation.choices as string[]) : ['Choice A', 'Choice B']);
-    } else {
-      setLocalLabel('');
-      setLocalDescription('');
-      setLocalChoices([]);
-    }
-  }, [activeFieldId, formDetails, selectedFields]);
-
-  // Mutations
-  const editFormMutation = trpc.form.editForm.useMutation({
-    onSuccess: () => {
-      toast.success('Form updated successfully!');
-      refetchFormDetails();
-    },
-    onError: (err) => {
-      toast.error(err.message || 'Failed to update form.');
-    },
-  });
-
-  const setFormPasswordMutation = trpc.form.setFormPassword.useMutation({
-    onSuccess: () => {
-      toast.success('Password protection enabled!');
-      refetchFormDetails();
-    },
-    onError: (err) => {
-      toast.error(err.message || 'Failed to set password.');
-    },
-  });
-
-  const removeFormPasswordMutation = trpc.form.removeFormPassword.useMutation({
-    onSuccess: () => {
-      toast.success('Password protection disabled.');
-      refetchFormDetails();
-    },
-    onError: (err) => {
-      toast.error(err.message || 'Failed to remove password.');
-    },
-  });
-
-  const publishMutation = trpc.form.publishForm.useMutation({
-    onSuccess: () => {
-      toast.success('Form is now live!');
-      refetchFormDetails();
-    },
-    onError: (err) => {
-      toast.error(err.message || 'Failed to publish form. Make sure it has at least one question.');
-    },
-  });
-
-  const unpublishMutation = trpc.form.unpublishForm.useMutation({
-    onSuccess: () => {
-      toast.success('Form set to draft.');
-      refetchFormDetails();
-    },
-    onError: (err) => {
-      toast.error(err.message || 'Failed to unpublish form.');
-    },
-  });
-
-  const duplicateMutation = trpc.form.duplicateForm.useMutation({
-    onSuccess: (data) => {
-      toast.success('Form duplicated successfully!');
-      router.push(`/dashboard/form/${data.form.id}`);
-    },
-    onError: (err) => {
-      toast.error(err.message || 'Failed to duplicate form.');
-    },
-  });
-
-  const deleteMutation = trpc.form.deleteForm.useMutation({
-    onSuccess: () => {
-      toast.success('Form deleted successfully.');
-      router.push('/dashboard');
-    },
-    onError: (err) => {
-      toast.error(err.message || 'Failed to delete form.');
-    },
-  });
-
-  const addFormFieldMutation = trpc.form.addFormField.useMutation({
-    onSuccess: () => {
-      toast.success('Question added successfully!');
-      refetchFormDetails();
-    },
-    onError: (err) => {
-      toast.error(err.message || 'Failed to add question.');
-    },
-  });
-
-  const deleteFormFieldMutation = trpc.form.deleteFormField.useMutation({
-    onSuccess: () => {
-      toast.success('Question removed.');
-      refetchFormDetails();
-    },
-    onError: (err) => {
-      toast.error(err.message || 'Failed to delete question.');
-    },
-  });
-
-  const editFormFieldMutation = trpc.form.editFormField.useMutation({
-    onMutate: async (newData) => {
-      // Cancel outgoing refetches to prevent overwriting our local changes
-      await utils.form.getFormByIdCreator.cancel({ id: formId || '' });
-
-      // Snapshot the current cache details
-      const previousDetails = utils.form.getFormByIdCreator.getData({ id: formId || '' });
-
-      // Optimistically update the cached list
-      if (previousDetails) {
-        utils.form.getFormByIdCreator.setData(
-          { id: formId || '' },
-          {
-            ...previousDetails,
-            fields: previousDetails.fields.map((field) =>
-              field.id === newData.id ? { ...field, ...newData } : field
-            ),
-          }
-        );
-      }
-
-      return { previousDetails };
-    },
-    onError: (err, newData, context) => {
-      // If mutation fails, roll back to original details
-      if (context?.previousDetails) {
-        utils.form.getFormByIdCreator.setData({ id: formId || '' }, context.previousDetails);
-      }
-      toast.error(err.message || 'Failed to update question.');
-    },
-    onSuccess: () => {
-      // Background refetch to keep data in sync with DB
-      refetchFormDetails();
-    },
+  const {
+    editFormMutation,
+    setFormPasswordMutation,
+    removeFormPasswordMutation,
+    publishMutation,
+    unpublishMutation,
+    duplicateMutation,
+    deleteMutation,
+    addFormFieldMutation,
+    deleteFormFieldMutation,
+    editFormFieldMutation,
+    reorderFormFieldsMutation,
+    duplicateFormFieldMutation,
+    clearFormResponsesMutation,
+    deleteResponseMutation,
+  } = useFormMutations({
+    formId,
+    refetchFormDetails,
+    refetchResponses,
+    refetchAnalytics,
+    selectedFields,
   });
 
   if (sessionLoading || detailsLoading || !selectedForm) {
-    return (
-      <div className="min-h-screen bg-white dark:bg-neutral-950 flex flex-col items-center justify-center gap-4">
-        <Loader2 className="h-10 w-10 text-primary animate-spin" />
-        <span className="text-sm font-semibold text-neutral-500">Loading form workspace...</span>
-      </div>
-    );
+    return <FormBuilderLoadingState />;
   }
-
-  const activeField = selectedFields.find((f) => f.id === activeFieldId) || selectedFields[0];
-  const activeFieldIndex = activeField ? selectedFields.findIndex((f) => f.id === activeField.id) : -1;
-  const activeValidation = (activeField?.validation as Record<string, unknown>) || {};
-  const activeChoices = Array.isArray(activeValidation?.choices)
-    ? (activeValidation.choices as string[])
-    : ['Choice A', 'Choice B'];
 
   const handleUpdateChoice = (idx: number, val: string) => {
     if (!activeField) return;
@@ -294,7 +139,7 @@ export default function FormBuilderPage() {
     });
   };
 
-  const handleAddNewField = async (type: string) => {
+  const handleAddNewField = async (type: any) => {
     try {
       const res = await addFormFieldMutation.mutateAsync({
         formId: selectedForm.id,
@@ -321,6 +166,24 @@ export default function FormBuilderPage() {
     }
   };
 
+  const handleReorder = (draggedIdx: number, targetIdx: number) => {
+    const welcomeFields = selectedFields.filter(f => f.type === 'welcome');
+    const thankYouFields = selectedFields.filter(f => f.type === 'thank_you');
+    const standardFields = selectedFields.filter(f => f.type !== 'welcome' && f.type !== 'thank_you');
+
+    const updatedStandard = [...standardFields];
+    const [draggedItem] = updatedStandard.splice(draggedIdx, 1);
+    if (draggedItem) {
+      updatedStandard.splice(targetIdx, 0, draggedItem);
+    }
+
+    const merged = [...welcomeFields, ...updatedStandard, ...thankYouFields];
+    reorderFormFieldsMutation.mutate({
+      formId: selectedForm.id,
+      fields: merged.map((f, i) => ({ id: f.id, orderIndex: i }))
+    });
+  };
+
   return (
     <div className="h-screen w-full flex flex-col bg-white dark:bg-neutral-955 font-sans transition-colors duration-300 overflow-hidden">
       {/* Top Breadcrumb Nav Bar */}
@@ -338,48 +201,59 @@ export default function FormBuilderPage() {
         userName={user?.name}
         refetchResponses={refetchResponses}
         refetchAnalytics={refetchAnalytics}
+        onPreviewOpen={() => setPreviewOpen(true)}
+        isSaving={editFormMutation.isPending || editFormFieldMutation.isPending}
       />
 
       {/* Content Tabs Switcher */}
       <div className="flex-1 flex overflow-hidden">
         {/* TAB 1: CONTENT BUILDER */}
         {activeFormTab === 'content' && (
-          <>
-            {/* Left timeline sidebar */}
-            <NavigationSidebar
-              selectedFields={selectedFields}
-              activeFieldId={activeFieldId}
-              setActiveFieldId={setActiveFieldId}
-              deleteFormFieldMutation={deleteFormFieldMutation}
-              handleAddNewField={handleAddNewField}
-            />
+          <FormBuilderProvider
+            value={{
+              selectedFields,
+              activeFieldId,
+              setActiveFieldId,
+              activeField,
+              activeFieldIndex,
+              localLabel,
+              setLocalLabel,
+              localDescription,
+              setLocalDescription,
+              localChoices,
+              setLocalChoices,
+              labelRef: labelRef as any,
+              descRef: descRef as any,
+              editFormFieldMutation,
+              deleteFormFieldMutation,
+              addFormFieldMutation,
+              reorderFormFieldsMutation,
+              duplicateFormFieldMutation,
+              handleUpdateChoice,
+              handleAddChoice,
+              handleDeleteChoice,
+              handleAddNewField,
+              handleReorderFields: handleReorder,
+              formId,
+              selectedForm,
+              formDetails,
+              refetchFormDetails,
+              activeValidation,
+            }}
+          >
+            <FormBuilderContentTab />
+          </FormBuilderProvider>
+        )}
 
-            {/* Center Canvas */}
-            <QuestionEditor
-              selectedFields={selectedFields}
-              activeField={activeField}
-              activeFieldIndex={activeFieldIndex}
-              localLabel={localLabel}
-              setLocalLabel={setLocalLabel}
-              localDescription={localDescription}
-              setLocalDescription={setLocalDescription}
-              localChoices={localChoices}
-              setLocalChoices={setLocalChoices}
-              labelRef={labelRef}
-              descRef={descRef}
-              resizeTextarea={resizeTextarea}
-              editFormFieldMutation={editFormFieldMutation}
-              handleUpdateChoice={handleUpdateChoice}
-              handleAddChoice={handleAddChoice}
-              handleDeleteChoice={handleDeleteChoice}
-              handleAddNewField={handleAddNewField}
+        {/* TAB: LOGIC RULES */}
+        {activeFormTab === 'logic' && (
+          <div className="flex-1 bg-[#f9f9fb] dark:bg-neutral-955 p-10 overflow-y-auto">
+            <LogicRulesBuilder 
+              formId={selectedForm.id} 
+              formSlug={selectedForm.slug} 
+              fields={selectedFields} 
             />
-
-            {/* Right Settings Sidebar */}
-            {activeField && (
-              <SettingsSidebar activeField={activeField} editFormFieldMutation={editFormFieldMutation} />
-            )}
-          </>
+          </div>
         )}
 
         {/* TAB 2: WORKFLOW & SETTINGS */}
@@ -421,9 +295,17 @@ export default function FormBuilderPage() {
         {/* TAB 5: RESULTS */}
         {activeFormTab === 'results' && (
           <ResultsTab
+            formId={selectedForm.id}
+            views={selectedForm.views}
             analyticsData={analyticsData}
             responses={selectedResponses}
             onViewDetails={(id) => setSelectedResponseDetailId(id)}
+            onDeleteResponse={(id) => deleteResponseMutation.mutate({ responseId: id })}
+            onClearResponses={() => {
+              if (confirm("Are you absolutely sure you want to delete ALL responses for this form? This action is permanent and cannot be undone!")) {
+                clearFormResponsesMutation.mutate({ id: selectedForm.id });
+              }
+            }}
           />
         )}
       </div>
@@ -434,6 +316,29 @@ export default function FormBuilderPage() {
         onClose={() => setSelectedResponseDetailId(null)}
         responses={selectedResponses}
         fields={selectedFields}
+      />
+
+      {/* Interactive Pro Design Studio and Complete Preview Modal */}
+      <FormPreviewModal
+        isOpen={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        form={{
+          id: selectedForm.id,
+          title: selectedForm.title,
+          description: selectedForm.description,
+          slug: selectedForm.slug,
+          theme: selectedForm.theme,
+          isPublished: selectedForm.isPublished,
+          visibility: selectedForm.visibility,
+        }}
+        fields={selectedFields}
+        onSaveDesign={async (themeConfig) => {
+          await editFormMutation.mutateAsync({
+            id: selectedForm.id,
+            theme: themeConfig,
+          });
+        }}
+        isSaving={editFormMutation.isPending}
       />
     </div>
   );
