@@ -105,12 +105,26 @@ export function setupMockDb(): MockDbChains {
   vi.mocked(db.delete).mockReturnValue(deleteChain as any);
 
   const mockTx = {
-    select: vi.fn().mockReturnValue(selectChain as any),
-    insert: vi.fn().mockReturnValue(insertChain as any),
-    update: vi.fn().mockReturnValue(updateChain as any),
-    delete: vi.fn().mockReturnValue(deleteChain as any),
+    select: vi.fn((...args) => {
+      vi.mocked(db.select)(...args);
+      return selectChain as any;
+    }),
+    insert: vi.fn((...args) => {
+      vi.mocked(db.insert)(...args);
+      return insertChain as any;
+    }),
+    update: vi.fn((...args) => {
+      vi.mocked(db.update)(...args);
+      return updateChain as any;
+    }),
+    delete: vi.fn((...args) => {
+      vi.mocked(db.delete)(...args);
+      return deleteChain as any;
+    }),
   };
-  vi.mocked(db.transaction).mockImplementation((callback) => callback(mockTx as any));
+  vi.mocked(db.transaction).mockImplementation(async (callback) => {
+    return callback(mockTx as any);
+  });
 
   return { selectChain, insertChain, updateChain, deleteChain };
 }

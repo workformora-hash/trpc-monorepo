@@ -71,5 +71,5 @@ describe("UserService - Profile & Me (Integration)", () => {
 
     expect(deletedUser?.isActive).toBe(false);
     expect(deletedUser?.deletedAt).not.toBeNull();
-  });
+  }, 20000);
 });

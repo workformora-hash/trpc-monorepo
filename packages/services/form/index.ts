@@ -1115,7 +1115,7 @@ class FormService {
           }
           const maxStars = config.maxStars || config.max || 5;
           if (val > maxStars) {
-            throw new Error(`Rating for "${field.label}" cannot exceed ${maxStars} stars.`);
+            throw new Error(`Answer for "${field.label}" must be at most ${maxStars}.`);
           }
           preparedAnswers.push({ fieldId: field.id, value: { value: val } });
           break;

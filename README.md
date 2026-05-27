@@ -1,135 +1,145 @@
-# Turborepo starter
+# Typeform Monorepo
 
-This Turborepo starter is maintained by the Turborepo core team.
+This repository is a Turborepo-based full-stack Typeform-like project with frontend, backend, and shared packages.
 
-## Using this example
+## Overview
 
-Run the following command:
+- `apps/api` - backend service package
+- `apps/web` - Next.js frontend application
+- `packages/database` - database schema, helpers, and Drizzle setup
+- `packages/email` - email templates and email service logic
+- `packages/eslint-config` - shared ESLint configuration
+- `packages/logger` - shared logging utilities
+- `packages/services` - core business logic and Vitest tests
+- `packages/trpc` - shared tRPC client/server code
+- `packages/typescript-config` - shared TypeScript config presets
 
-```sh
-npx create-turbo@latest
+## Tech stack
+
+- Node.js + TypeScript
+- Turborepo monorepo
+- Next.js 16 app router frontend
+- Vitest for unit/integration tests in `packages/services`
+- Tailwind CSS and Radix UI components in the frontend
+- Drizzle ORM for database schema and migrations
+
+## Getting started
+
+Install dependencies from the root:
+
+```bash
+pnpm install
 ```
 
-## What's inside?
+### Run the frontend
 
-This Turborepo includes the following packages/apps:
+From the repo root:
 
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+```bash
+pnpm --filter web dev
 ```
 
-You can build a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+Or from `apps/web`:
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+```bash
+cd apps/web
+pnpm dev
 ```
 
-### Develop
+### Run the backend
 
-To develop all apps and packages, run the following command:
+From the repo root:
 
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+```bash
+pnpm --filter api dev
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+Or from `apps/api`:
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
+```bash
+cd apps/api
+pnpm dev
 ```
 
-### Remote Caching
+### Run all apps/packages in development
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
+```bash
+pnpm dev
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+This uses Turborepo to start the workspace.
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+## Build
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
+Build everything from the root:
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
+```bash
+pnpm build
 ```
 
-## Useful Links
+Build a specific package with a filter:
 
-Learn more about the power of Turborepo:
+```bash
+pnpm exec turbo build --filter=web
+pnpm exec turbo build --filter=api
+pnpm exec turbo build --filter=@repo/services
+```
 
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
+## Lint and format
+
+```bash
+pnpm lint
+pnpm format
+pnpm check-types
+```
+
+## Testing
+
+The repository has tests in `packages/services` that use Vitest.
+
+Run all service tests from the root:
+
+```bash
+pnpm --filter @repo/services test
+```
+
+Run tests from inside `packages/services`:
+
+```bash
+cd packages/services
+pnpm test
+```
+
+Run a single test file from the root:
+
+```bash
+pnpm --filter @repo/services exec vitest run packages/services/form/__tests__/unit/form-state.test.ts
+```
+
+### Why tests may fail from other folders
+
+- The root workspace does not define a top-level `test` script for Vitest.
+- Use `pnpm --filter @repo/services test` or change into `packages/services`.
+
+## Project structure
+
+```text
+/apps
+  /api
+  /web
+/packages
+  /database
+  /email
+  /eslint-config
+  /logger
+  /services
+  /trpc
+  /typescript-config
+```
+
+## Notes
+
+- The workspace uses `pnpm` as the package manager (`packageManager: pnpm@9.0.0`).
+- If you add tests in other packages, be sure to add appropriate package scripts or update the root workspace scripts.
+- `apps/web` is the Next.js frontend and may require its own `.env` values for auth, database, and API endpoints.
+- `packages/services` contains the Vitest tests and core service logic for forms and user flows.

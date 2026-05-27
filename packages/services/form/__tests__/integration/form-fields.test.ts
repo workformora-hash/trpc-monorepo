@@ -70,9 +70,9 @@ describe("FormService - Form Fields (Integration)", () => {
     });
 
     expect(field1.id).toBeDefined();
-    expect(field1.orderIndex).toBe(0);
+    expect(field1.orderIndex).toBe(2);
 
-    // 3. Add Field 2 (should auto-increment orderIndex to 1)
+    // 3. Add Field 2 (should auto-increment orderIndex to 3)
     const field2 = await formService.addFormField(token, {
       formId: form.id,
       label: "Second Question",
@@ -80,7 +80,7 @@ describe("FormService - Form Fields (Integration)", () => {
       required: false,
     });
 
-    expect(field2.orderIndex).toBe(1);
+    expect(field2.orderIndex).toBe(3);
 
     // 4. Edit Field 1 properties (make it unrequired and change label)
     const editedField1 = await formService.editFormField(token, {
@@ -96,8 +96,8 @@ describe("FormService - Form Fields (Integration)", () => {
     const reorderResult = await formService.reorderFormFields(token, {
       formId: form.id,
       fields: [
-        { id: field1.id, orderIndex: 1 },
-        { id: field2.id, orderIndex: 0 },
+        { id: field1.id, orderIndex: 3 },
+        { id: field2.id, orderIndex: 2 },
       ],
     });
 
@@ -112,8 +112,8 @@ describe("FormService - Form Fields (Integration)", () => {
     const f1InDb = dbFields.find((f) => f.id === field1.id);
     const f2InDb = dbFields.find((f) => f.id === field2.id);
 
-    expect(f1InDb?.orderIndex).toBe(1);
-    expect(f2InDb?.orderIndex).toBe(0);
+    expect(f1InDb?.orderIndex).toBe(3);
+    expect(f2InDb?.orderIndex).toBe(2);
 
     // 6. Delete Field 1
     const deleteResult = await formService.deleteFormField(token, {

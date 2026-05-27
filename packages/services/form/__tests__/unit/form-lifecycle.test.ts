@@ -344,7 +344,7 @@ describe("FormService - Form Lifecycle (Unit)", () => {
         Promise.resolve([clonedFormResult]).then(onfulfilled)
       );
 
-      const result = await formService.createFormFromTemplate(mockToken, { templateId: "customer-feedback" });
+      const result = await formService.createFormFromTemplate(mockToken, { templateId: "customer-satisfaction" });
 
       expect(result.id).toBe("cloned-form-id");
       expect(result.title).toBe("Customer Satisfaction Survey");

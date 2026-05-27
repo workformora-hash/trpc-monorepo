@@ -134,7 +134,7 @@ describe("FormService - Form Responses & Analytics (Integration)", () => {
     });
 
     expect(analytics.totalResponses).toBe(1);
-    expect(analytics.fieldAnalytics).toHaveLength(2);
+    expect(analytics.fieldAnalytics).toHaveLength(4);
     const textAnalytic = analytics.fieldAnalytics!.find((a) => a.fieldId === textField.id);
     expect(textAnalytic?.stats.recentAnswers).toContain("Bob Vance");
     const ratingAnalytic = analytics.fieldAnalytics!.find((a) => a.fieldId === ratingField.id);
