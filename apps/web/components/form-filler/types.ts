@@ -15,6 +15,13 @@ export interface ThemeStyles {
   fontWeight?: string | number;
 }
 
+export interface FieldInputProps {
+  field: FormField;
+  value: unknown;
+  styles: ThemeStyles;
+  onChange: (value: unknown) => void;
+}
+
 export interface FormField {
   id: string;
   label: string;

@@ -1,29 +1,29 @@
 import React from "react";
 
-export const getImageStyles = (validation: any) => {
+export const getImageStyles = (validation: Record<string, unknown>) => {
   if (!validation) return {};
   const styles: React.CSSProperties = {
     objectFit: 'cover',
   };
   
   if (validation.imageFocalPoint) {
-    styles.objectPosition = validation.imageFocalPoint;
+    styles.objectPosition = validation.imageFocalPoint as string;
   }
   
   if (validation.imageAspectRatio && validation.imageAspectRatio !== 'auto') {
-    styles.aspectRatio = validation.imageAspectRatio;
+    styles.aspectRatio = validation.imageAspectRatio as string;
   }
   
-  styles.width = validation.imageWidth || '100%';
-  styles.height = validation.imageHeight || 'auto';
+  styles.width = (validation.imageWidth as string) || '100%';
+  styles.height = (validation.imageHeight as string) || 'auto';
   styles.maxWidth = '100%';
   styles.maxHeight = '100%';
   
   const filters: string[] = [];
-  const brightness = validation.imageBrightness !== undefined ? validation.imageBrightness : 100;
+  const brightness = validation.imageBrightness !== undefined ? (validation.imageBrightness as number) : 100;
   filters.push(`brightness(${brightness}%)`);
   
-  const filterType = validation.imageFilter || 'none';
+  const filterType = (validation.imageFilter as string) || 'none';
   if (filterType === 'grayscale') filters.push('grayscale(100%)');
   else if (filterType === 'sepia') filters.push('sepia(100%)');
   else if (filterType === 'vintage') filters.push('sepia(40%) brightness(85%) contrast(115%)');
@@ -37,21 +37,21 @@ export const getImageStyles = (validation: any) => {
   return styles;
 };
 
-export const getBgImageStyles = (validation: any) => {
+export const getBgImageStyles = (validation: Record<string, unknown>) => {
   if (!validation) return {};
   const styles: React.CSSProperties = {
     objectFit: 'cover',
   };
   
   if (validation.bgImageFocalPoint) {
-    styles.objectPosition = validation.bgImageFocalPoint;
+    styles.objectPosition = validation.bgImageFocalPoint as string;
   }
   
   const filters: string[] = [];
-  const brightness = validation.bgImageBrightness !== undefined ? validation.bgImageBrightness : 100;
+  const brightness = validation.bgImageBrightness !== undefined ? (validation.bgImageBrightness as number) : 100;
   filters.push(`brightness(${brightness}%)`);
   
-  const filterType = validation.bgImageFilter || 'none';
+  const filterType = (validation.bgImageFilter as string) || 'none';
   if (filterType === 'grayscale') filters.push('grayscale(100%)');
   else if (filterType === 'sepia') filters.push('sepia(100%)');
   else if (filterType === 'vintage') filters.push('sepia(40%) brightness(85%) contrast(115%)');

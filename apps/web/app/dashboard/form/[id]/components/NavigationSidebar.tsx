@@ -152,7 +152,7 @@ export function NavigationSidebar() {
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              duplicateFormFieldMutation.mutate({ formId, fieldId: field.id });
+              duplicateFormFieldMutation.mutate({ fieldId: field.id });
             }}
             className="text-neutral-400 hover:text-primary dark:text-neutral-500 dark:hover:text-primary p-0.5 rounded transition-all"
             title="Duplicate question"

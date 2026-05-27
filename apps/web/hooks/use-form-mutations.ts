@@ -1,13 +1,14 @@
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { trpc } from '~/trpc/client';
+import { type FormField } from '@repo/database';
 
 interface UseFormMutationsProps {
   formId: string;
-  refetchFormDetails: () => Promise<any>;
-  refetchResponses: () => Promise<any>;
-  refetchAnalytics: () => Promise<any>;
-  selectedFields: any[];
+  refetchFormDetails: () => Promise<unknown>;
+  refetchResponses: () => Promise<unknown>;
+  refetchAnalytics: () => Promise<unknown>;
+  selectedFields: FormField[];
 }
 
 export function useFormMutations({

@@ -44,6 +44,23 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  transpilePackages: ['@repo/database', '@repo/trpc', '@repo/services', '@repo/email', '@repo/logger'],
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
+    ],
+  },
   async headers() {
     if (process.env.NODE_ENV === 'development') {
       return [];

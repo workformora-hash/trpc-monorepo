@@ -134,7 +134,12 @@ export default function PublicFormPage() {
       {/* Enhanced Japanese Theme Visual Elements - Now managed globally by FormHeader background */}
       {form.theme === 'japanese' && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
-          {/* We keep only subtle local hints if needed, but let global elements take the lead */}
+          {/* Subtle local mountain silhouette hint */}
+          <div className="absolute bottom-0 left-0 w-full h-[40%] opacity-[0.02] text-[#2C1810]">
+             <svg viewBox="0 0 200 60" fill="currentColor" className="w-full h-full">
+                <path d="M0,60 L40,20 L70,45 L110,10 L160,50 L200,30 L200,60 Z" />
+             </svg>
+          </div>
         </div>
       )}
 

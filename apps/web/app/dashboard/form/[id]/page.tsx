@@ -16,6 +16,7 @@ import { trpc } from '~/trpc/client';
 import { FormHeader, type FormTab } from './components/FormHeader';
 import { WorkflowTab } from './components/WorkflowTab';
 import { LogicRulesBuilder } from './components/LogicRulesBuilder';
+import { FormField } from '@repo/database';
 import { ConnectTab } from './components/ConnectTab';
 import { ShareTab } from './components/ShareTab';
 import { ResultsTab } from './components/ResultsTab';
@@ -99,7 +100,7 @@ export default function FormBuilderPage() {
     refetchFormDetails,
     refetchResponses,
     refetchAnalytics,
-    selectedFields,
+    selectedFields: selectedFields as FormField[],
   });
 
   if (sessionLoading || detailsLoading || !selectedForm) {
@@ -251,7 +252,7 @@ export default function FormBuilderPage() {
             <LogicRulesBuilder 
               formId={selectedForm.id} 
               formSlug={selectedForm.slug} 
-              fields={selectedFields} 
+              fields={selectedFields as FormField[]} 
             />
           </div>
         )}
@@ -271,7 +272,14 @@ export default function FormBuilderPage() {
               theme: selectedForm.theme,
               isPasswordProtected: (selectedForm as any).isPasswordProtected,
             }}
-            onEditForm={(fields) => editFormMutation.mutate({ id: selectedForm.id, ...fields })}
+            onEditForm={(fields) => {
+              const { theme, ...rest } = fields;
+              editFormMutation.mutate({ 
+                id: selectedForm.id, 
+                ...rest,
+                ...(theme ? { theme } : {})
+              });
+            }}
             onSetPassword={(password) => setFormPasswordMutation.mutate({ id: selectedForm.id, password })}
             onRemovePassword={() => removeFormPasswordMutation.mutate({ id: selectedForm.id })}
             onDuplicateForm={() => duplicateMutation.mutate({ id: selectedForm.id })}

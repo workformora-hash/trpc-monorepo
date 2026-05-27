@@ -16,11 +16,12 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Button } from '~/components/ui/button';
+import type { FormField } from '@repo/database';
 
 interface LogicRulesBuilderProps {
   formId: string;
   formSlug: string;
-  fields: any[];
+  fields: FormField[];
 }
 
 export function LogicRulesBuilder({ formId, formSlug, fields }: LogicRulesBuilderProps) {
@@ -37,7 +38,7 @@ export function LogicRulesBuilder({ formId, formSlug, fields }: LogicRulesBuilde
       refetchLogicTree();
       setSelectedFieldId(null);
     },
-    onError: (err: any) => {
+    onError: (err: { message?: string }) => {
       toast.error(err.message || "Failed to add logic rule.");
     }
   });
@@ -48,7 +49,7 @@ export function LogicRulesBuilder({ formId, formSlug, fields }: LogicRulesBuilde
       refetchLogicTree();
       setSelectedFieldId(null);
     },
-    onError: (err: any) => {
+    onError: (err: { message?: string }) => {
       toast.error(err.message || "Failed to delete logic rule.");
     }
   });
@@ -65,7 +66,7 @@ export function LogicRulesBuilder({ formId, formSlug, fields }: LogicRulesBuilde
   const standardFields = fields.filter(f => f.type !== 'welcome' && f.type !== 'thank_you');
   const targetFields = standardFields.slice(1);
 
-  const handleEditRule = (field: any, existingRule: any) => {
+  const handleEditRule = (field: FormField, existingRule: { triggerFieldId: string; operator: "equals" | "not_equals" | "greater_than" | "less_than"; value?: unknown } | null | undefined) => {
     setSelectedFieldId(field.id);
     if (existingRule) {
       setTriggerFieldId(existingRule.triggerFieldId);

@@ -34,11 +34,11 @@ interface FormBuilderContextType {
   setLocalChoices: (choices: string[]) => void;
   labelRef: React.RefObject<HTMLTextAreaElement>;
   descRef: React.RefObject<HTMLTextAreaElement>;
-  editFormFieldMutation: any; // TODO: Type properly
-  deleteFormFieldMutation: any; // TODO: Type properly
-  addFormFieldMutation: any; // TODO: Type properly
-  reorderFormFieldsMutation: any; // TODO: Type properly
-  duplicateFormFieldMutation: any; // TODO: Type properly
+  editFormFieldMutation: ReturnType<typeof trpc.form.editFormField.useMutation>;
+  deleteFormFieldMutation: ReturnType<typeof trpc.form.deleteFormField.useMutation>;
+  addFormFieldMutation: ReturnType<typeof trpc.form.addFormField.useMutation>;
+  reorderFormFieldsMutation: ReturnType<typeof trpc.form.reorderFormFields.useMutation>;
+  duplicateFormFieldMutation: ReturnType<typeof trpc.form.duplicateFormField.useMutation>;
   handleUpdateChoice: (idx: number, val: string) => void;
   handleAddChoice: () => void;
   handleDeleteChoice: (idx: number) => void;
@@ -47,7 +47,7 @@ interface FormBuilderContextType {
   formId: string;
   selectedForm: FormDetails['form'] | undefined;
   formDetails: FormDetails | undefined;
-  refetchFormDetails: () => Promise<any>;
+  refetchFormDetails: () => Promise<unknown>;
   activeValidation: Record<string, unknown>;
 }
 

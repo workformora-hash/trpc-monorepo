@@ -113,16 +113,26 @@ export function FormHeader({
             </svg>
           </div>
 
+          {/* Drifting Mist Layers */}
+          <div className="absolute inset-0 z-[-1] pointer-events-none overflow-hidden">
+            <div className="absolute bottom-0 left-0 right-0 h-[40%] bg-gradient-to-t from-[#D4C4B0]/20 to-transparent opacity-40 animate-mistDrift" />
+            <div className="absolute bottom-[10%] left-[-50%] right-[-50%] h-[30%] bg-gradient-to-t from-white/10 to-transparent opacity-20 blur-3xl animate-mistDrift" style={{ animationDuration: '25s' }} />
+          </div>
+
           <style>{`
             @keyframes sakuraFall3D {
               0% { transform: translateY(-30px) translateX(0) rotateX(0deg) rotateY(0deg) rotateZ(0deg); opacity: 0; }
-              10% { opacity: 0.6; }
-              90% { opacity: 0.6; }
+              10% { opacity: 0.8; }
+              90% { opacity: 0.8; }
               100% { transform: translateY(110vh) translateX(150px) rotateX(720deg) rotateY(360deg) rotateZ(180deg); opacity: 0; }
             }
             @keyframes moonPulse {
-              0%, 100% { opacity: 0.2; transform: scale(1) translate(0, 0); filter: blur(10px); }
-              50% { opacity: 0.5; transform: scale(1.08) translate(-3px, -3px); filter: blur(14px); }
+              0%, 100% { opacity: 0.4; transform: scale(1) translate(0, 0); filter: blur(8px); }
+              50% { opacity: 0.7; transform: scale(1.05) translate(-2px, -2px); filter: blur(12px); }
+            }
+            @keyframes mistDrift {
+              0% { transform: translateX(0); }
+              100% { transform: translateX(20%); }
             }
             @keyframes lanternSway {
               0% { transform: rotate(-4deg); }
