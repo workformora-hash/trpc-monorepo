@@ -1,7 +1,7 @@
 'use client';
 
 import React, { memo } from "react";
-import { ArrowRight, Sparkles, Clock, Lock, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Clock, Lock, CheckCircle2 } from "lucide-react";
 import type { ThemeStyles } from "../types";
 
 interface WelcomeContentProps {

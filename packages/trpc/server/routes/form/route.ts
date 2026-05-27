@@ -86,7 +86,9 @@ import {
   trackFormViewInputModel,
   trackFormViewOutputModel,
   duplicateFormFieldInputModel,
-  duplicateFormFieldOutputModel
+  duplicateFormFieldOutputModel,
+  getCloudinarySignatureInputModel,
+  getCloudinarySignatureOutputModel
 } from "./model";
 
 const TAGS = ["Forms"];
@@ -1793,6 +1795,69 @@ export const formRouter = router({
       throw new TRPCError({
         code: errorCode,
         message: error.message || "Failed to duplicate form field",
+      });
+    }
+  }),
+
+  getCloudinarySignature: publicProcedure.meta({
+    openapi: {
+      method: "POST",
+      path: getPath("/upload/signature"),
+      tags: TAGS,
+      protect: true,
+    }
+  })
+  .input(getCloudinarySignatureInputModel)
+  .output(getCloudinarySignatureOutputModel)
+  .mutation(async ({ ctx }) => {
+    try {
+      const sessionToken = getCookieValue(ctx.req?.headers?.cookie, cookieKey);
+      if (!sessionToken) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You must be logged in to upload assets",
+        });
+      }
+
+      const cloudName = process.env.CLOUDINARY_CLOUD_NAME || 'dfq6joxe8';
+      const apiKey = process.env.CLOUDINARY_API_KEY;
+      const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+      if (!apiKey || !apiSecret) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Cloudinary is not configured on the backend server",
+        });
+      }
+
+      const timestamp = Math.round(new Date().getTime() / 1000);
+      const folder = 'formora';
+      
+      const paramsToSign = {
+        folder,
+        timestamp,
+      };
+
+      const sortedKeys = Object.keys(paramsToSign).sort() as (keyof typeof paramsToSign)[];
+      const signatureString = sortedKeys
+        .map(key => `${key}=${paramsToSign[key]}`)
+        .join('&') + apiSecret;
+      
+      const crypto = await import('crypto');
+      const signature = crypto.createHash('sha1').update(signatureString).digest('hex');
+
+      return {
+        signature,
+        timestamp,
+        folder,
+        apiKey,
+        cloudName,
+      };
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: error.message || "Failed to generate upload signature",
       });
     }
   }),

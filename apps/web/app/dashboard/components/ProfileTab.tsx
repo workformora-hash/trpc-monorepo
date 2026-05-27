@@ -32,20 +32,20 @@ export const ProfileTab = React.memo(({ user }: ProfileTabProps) => {
         <div className="grid grid-cols-3 gap-4 py-3">
           <span className="text-sm text-neutral-400 font-medium">Status</span>
           <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 inline-flex w-fit items-center gap-1 uppercase tracking-wider">
-            <Check className="h-3 w-3 stroke-[3]" /> Active Creator
+            <Check className="size-3 stroke-[3]" /> Active Creator
           </span>
         </div>
       </div>
 
       <div className="p-5 rounded-xl bg-primary/5 border border-primary/20 flex items-start gap-3 mt-8 relative overflow-hidden group">
         <div className="absolute -right-4 -top-4 opacity-5 group-hover:scale-110 transition-transform duration-500">
-           <Sparkles className="h-24 w-24 text-primary" />
+           <Sparkles className="size-24 text-primary" />
         </div>
-        <Sparkles className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+        <Sparkles className="size-5 text-primary mt-0.5 flex-shrink-0" />
         <div className="relative z-10">
           <h4 className="text-sm font-bold text-foreground">You are on the Free Tier</h4>
           <p className="text-xs text-muted-foreground mt-1 leading-relaxed">Upgrade to Premium for custom domains, unlimited forms, custom branding, and advanced logic branching.</p>
-          <button className="mt-3 text-[10px] font-extrabold uppercase tracking-widest text-primary hover:underline">View Plans →</button>
+          <button type="button" className="mt-3 text-[10px] font-extrabold uppercase tracking-widest text-primary hover:underline">View Plans →</button>
         </div>
       </div>
     </div>

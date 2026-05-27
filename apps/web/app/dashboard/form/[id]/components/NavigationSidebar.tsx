@@ -67,7 +67,7 @@ const FIELD_COLOR: Record<string, string> = {
 };
 
 export function NavigationSidebar() {
-  const { selectedFields, activeFieldId, setActiveFieldId, deleteFormFieldMutation, duplicateFormFieldMutation, formId, handleAddNewField, handleReorderFields } = useFormBuilderContext();
+  const { selectedFields, activeFieldId, setActiveFieldId, deleteFormFieldMutation, duplicateFormFieldMutation, handleAddNewField, handleReorderFields } = useFormBuilderContext();
 
   const welcomeFields = selectedFields.filter(f => f.type === 'welcome');
   const thankYouFields = selectedFields.filter(f => f.type === 'thank_you');

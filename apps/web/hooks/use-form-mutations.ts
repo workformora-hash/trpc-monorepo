@@ -16,7 +16,6 @@ export function useFormMutations({
   refetchFormDetails,
   refetchResponses,
   refetchAnalytics,
-  selectedFields,
 }: UseFormMutationsProps) {
   const router = useRouter();
   const utils = trpc.useUtils();

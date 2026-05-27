@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, use } from 'react';
 import { trpc } from '~/trpc/client';
-import { toast } from 'sonner';
 import { FormField as DbFormField } from '@repo/database';
 import { getFormByIdCreatorOutputModel } from '@repo/trpc/server/routes/form/model';
 import { z } from 'zod';
@@ -56,7 +55,7 @@ const FormBuilderContext = createContext<FormBuilderContextType | undefined>(und
 
 // Custom hook to use the context
 export function useFormBuilderContext() {
-  const context = useContext(FormBuilderContext);
+  const context = use(FormBuilderContext);
   if (!context) {
     throw new Error('useFormBuilderContext must be used within a FormBuilderProvider');
   }

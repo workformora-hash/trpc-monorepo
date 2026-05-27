@@ -1,11 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
+
+const emptySubscribe = () => () => {};
+const getSnapshot = () => true;
+const getServerSnapshot = () => false;
 
 export function useThemeMounted() {
-  const [themeMounted, setThemeMounted] = useState(false);
-
-  useEffect(() => {
-    setThemeMounted(true);
-  }, []);
-
-  return themeMounted;
+  return useSyncExternalStore(emptySubscribe, getSnapshot, getServerSnapshot);
 }

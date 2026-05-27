@@ -94,8 +94,8 @@ export function FormHeader({
               style={{
                 top: `-20px`,
                 left: `${(i * 4) % 100}%`,
-                fontSize: `${Math.random() * 8 + 12}px`,
-                animation: `sakuraFall3D ${Math.random() * 12 + 10}s linear infinite`,
+                fontSize: `${((i * 13) % 8) + 12}px`,
+                animation: `sakuraFall3D ${((i * 7) % 12) + 10}s linear infinite`,
                 animationDelay: `${i * 0.7}s`,
                 filter: 'drop-shadow(0 0 3px rgba(248,187,208,0.2))'
               }}

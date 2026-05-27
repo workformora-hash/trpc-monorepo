@@ -24,7 +24,7 @@ export interface VisualTemplate {
   themeTag: string;
 }
 
-export const VISUAL_TEMPLATES: VisualTemplate[] = [
+const VISUAL_TEMPLATES: VisualTemplate[] = [
   {
     id: "dark-glassmorphism",
     name: "Midnight Aurora",

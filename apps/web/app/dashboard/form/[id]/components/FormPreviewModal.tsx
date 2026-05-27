@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight, RotateCcw, Eye, Keyboard } from 'lucide-react';
 import { getThemeStyles, getThemeFontImport } from '~/components/form-filler/theme-config';
 import { FormWelcomeSlide } from '~/components/form-filler/FormWelcomeSlide';
@@ -33,19 +33,33 @@ export function FormPreviewModal({ isOpen, onClose, form, fields }: FormPreviewM
   const welcomeField = useMemo(() => fields.find((f) => f.type === 'welcome') || null, [fields]);
   const thankYouField = useMemo(() => fields.find((f) => f.type === 'thank_you') || null, [fields]);
 
-  const [currentIndex, setCurrentIndex] = useState(-1); // -1 = welcome
-  const [answers, setAnswers] = useState<Record<string, unknown>>({});
-  const [submitted, setSubmitted] = useState(false);
-  const [slideDir, setSlideDir] = useState<'forward' | 'back'>('forward');
+  const [slideState, setSlideState] = useState({
+    currentIndex: -1,
+    answers: {} as Record<string, unknown>,
+    submitted: false,
+    slideDir: 'forward' as 'forward' | 'back',
+  });
+  const { currentIndex, answers, submitted, slideDir } = slideState;
+
   const [animating, setAnimating] = useState(false);
   const [showKeyHint, setShowKeyHint] = useState(true);
 
+  const prevIsOpenRef = useRef(false);
+
+  if (isOpen !== prevIsOpenRef.current) {
+    prevIsOpenRef.current = isOpen;
+    if (isOpen) {
+      setSlideState({
+        currentIndex: -1,
+        answers: {},
+        submitted: false,
+        slideDir: 'forward',
+      });
+    }
+  }
+
   useEffect(() => {
     if (isOpen) {
-      setCurrentIndex(-1);
-      setAnswers({});
-      setSubmitted(false);
-      setSlideDir('forward');
       const t = setTimeout(() => setShowKeyHint(false), 3500);
       return () => clearTimeout(t);
     }
@@ -71,51 +85,75 @@ export function FormPreviewModal({ isOpen, onClose, form, fields }: FormPreviewM
 
   const handleNext = useCallback(() => {
     transition(() => {
-      setSlideDir('forward');
-      if (currentIndex === -1) {
-        questions.length === 0 ? setSubmitted(true) : setCurrentIndex(0);
-      } else if (currentIndex >= questions.length - 1) {
-        setSubmitted(true);
-      } else {
-        setCurrentIndex((i) => i + 1);
-      }
+      setSlideState((prev) => {
+        let newIndex = prev.currentIndex;
+        let newSubmitted = prev.submitted;
+        if (prev.currentIndex === -1) {
+          if (questions.length === 0) {
+            newSubmitted = true;
+          } else {
+            newIndex = 0;
+          }
+        } else if (prev.currentIndex >= questions.length - 1) {
+          newSubmitted = true;
+        } else {
+          newIndex = prev.currentIndex + 1;
+        }
+        return {
+          ...prev,
+          slideDir: 'forward',
+          currentIndex: newIndex,
+          submitted: newSubmitted,
+        };
+      });
     });
-  }, [currentIndex, questions.length, transition]);
+  }, [questions.length, transition]);
 
   const handlePrev = useCallback(() => {
     if (submitted) {
       transition(() => {
-        setSlideDir('back');
-        setSubmitted(false);
-        setCurrentIndex(questions.length - 1);
+        setSlideState((prev) => ({
+          ...prev,
+          slideDir: 'back',
+          submitted: false,
+          currentIndex: questions.length - 1,
+        }));
       });
     } else if (currentIndex > -1) {
       transition(() => {
-        setSlideDir('back');
-        setCurrentIndex((i) => i - 1);
+        setSlideState((prev) => ({
+          ...prev,
+          slideDir: 'back',
+          currentIndex: prev.currentIndex - 1,
+        }));
       });
     }
   }, [currentIndex, questions.length, submitted, transition]);
 
   const handleReset = () => {
-    setCurrentIndex(-1);
-    setAnswers({});
-    setSubmitted(false);
-    setSlideDir('forward');
+    setSlideState({
+      currentIndex: -1,
+      answers: {},
+      submitted: false,
+      slideDir: 'forward',
+    });
     setAnimating(false);
   };
+
+  const handlersRef = useRef({ onClose, handleNext, handlePrev });
+  handlersRef.current = { onClose, handleNext, handlePrev };
 
   // Keyboard navigation
   useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') handleNext();
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') handlePrev();
+      if (e.key === 'Escape') handlersRef.current.onClose();
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') handlersRef.current.handleNext();
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') handlersRef.current.handlePrev();
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [isOpen, onClose, handleNext, handlePrev]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -229,7 +267,7 @@ export function FormPreviewModal({ isOpen, onClose, form, fields }: FormPreviewM
               isSubmitting={false}
               isLastQuestion={currentIndex === questions.length - 1}
               styles={activeStyles}
-              onChange={(val) => setAnswers((prev) => ({ ...prev, [activeField.id]: val }))}
+              onChange={(val) => setSlideState((prev) => ({ ...prev, answers: { ...prev.answers, [activeField.id]: val } }))}
               onNext={handleNext}
             />
           ) : (

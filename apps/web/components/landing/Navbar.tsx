@@ -1,23 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import { LayoutDashboard, Sun, Moon } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import { trpc } from '~/trpc/client';
+import { useThemeMounted } from '~/hooks/use-theme-mounted';
 
 export function Navbar() {
   const { data: userSession } = trpc.auth.getCurrentUser.useQuery();
   const user = userSession?.user;
 
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  // Avoid hydration mismatch by waiting until mounted
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useThemeMounted();
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
@@ -28,8 +23,8 @@ export function Navbar() {
             <span className="font-semibold text-foreground tracking-tight">FormBuilder</span>
           </div>
           <div className="hidden md:flex items-center gap-12 text-sm font-semibold">
-            <a href="/#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</a>
-            <a href="/#pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
+            <Link href="/#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</Link>
+            <Link href="/#pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</Link>
             <Link href="/explore" className="text-muted-foreground hover:text-foreground transition-colors">Explore</Link>
             <Link href="/templates" className="text-muted-foreground hover:text-foreground transition-colors">Templates</Link>
           </div>

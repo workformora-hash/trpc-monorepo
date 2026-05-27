@@ -2,7 +2,6 @@
 
 import React, { memo } from "react";
 import { Check } from "lucide-react";
-import type { ThemeStyles } from "../types";
 
 interface SuccessContentProps {
   title: string;

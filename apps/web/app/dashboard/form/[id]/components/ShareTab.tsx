@@ -1,9 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useSyncExternalStore } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import { toast } from 'sonner';
+
+const emptySubscribe = () => () => {};
+const getSnapshot = () => window.location.origin;
+const getServerSnapshot = () => '';
 
 interface Form {
   isPublished: boolean;
@@ -15,13 +19,7 @@ interface ShareTabProps {
 }
 
 export function ShareTab({ form }: ShareTabProps) {
-  const [origin, setOrigin] = useState('');
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setOrigin(window.location.origin);
-    }
-  }, []);
+  const origin = useSyncExternalStore(emptySubscribe, getSnapshot, getServerSnapshot);
 
   const publicUrl = form.isPublished
     ? `${origin}/form/${form.slug}`

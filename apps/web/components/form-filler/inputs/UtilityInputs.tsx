@@ -1,7 +1,7 @@
 'use client';
 
 import React, { memo } from "react";
-import { Mail, Globe, MapPin, Calendar, Phone } from "lucide-react";
+import { Globe, Calendar } from "lucide-react";
 import type { FieldInputProps } from "../types";
 
 export const UtilityInputs = memo(({ field, value, styles, onChange }: FieldInputProps) => {
@@ -18,7 +18,6 @@ export const UtilityInputs = memo(({ field, value, styles, onChange }: FieldInpu
       <Icon className="h-5 w-5 opacity-30 shrink-0" />
       <input
         type={type}
-        autoFocus
         value={typeof value === "string" ? value : ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -61,10 +60,17 @@ export const UtilityInputs = memo(({ field, value, styles, onChange }: FieldInpu
           ))}
         </div>
       );
-    case 'checkbox':
+    case 'checkbox': {
       const checked = !!value;
       return (
-        <div className="py-6 flex items-center gap-4 group cursor-pointer" onClick={() => onChange(!checked)}>
+        <div 
+          role="checkbox"
+          aria-checked={checked}
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onChange(!checked); } }}
+          className="py-6 flex items-center gap-4 group cursor-pointer focus:outline-none rounded px-2"
+          onClick={() => onChange(!checked)}
+        >
           <div 
             className="h-7 w-7 rounded-lg border-2 flex items-center justify-center transition-all"
             style={{ 
@@ -77,6 +83,7 @@ export const UtilityInputs = memo(({ field, value, styles, onChange }: FieldInpu
           <span className="text-lg font-medium select-none" style={{ color: styles.textColor }}>I agree to the terms</span>
         </div>
       );
+    }
     default:
       return null;
   }

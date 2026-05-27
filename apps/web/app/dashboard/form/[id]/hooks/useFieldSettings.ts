@@ -141,17 +141,7 @@ export function useFieldSettings(activeField: ActiveField, mutation: MutationApi
     [id, JSON.stringify(v)],
   );
 
-  /** Generic optimistic toggle for a boolean validation key */
-  const makeValidationToggle = <K extends keyof FieldValidation>(
-    key: K,
-    localValue: boolean,
-    setter: (v: boolean) => void,
-  ) =>
-    useCallback(() => {
-      const next = !localValue;
-      setter(next);
-      patchValidation({ [key]: next } as Partial<FieldValidation>);
-    }, [localValue]);
+
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 

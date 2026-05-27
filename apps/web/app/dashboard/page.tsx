@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
+import { useThemeMounted } from '~/hooks/use-theme-mounted';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { trpc } from '~/trpc/client';
@@ -16,21 +17,17 @@ import { TemplatesTab } from './components/TemplatesTab';
 import { ProfileTab } from './components/ProfileTab';
 
 export default function DashboardPage() {
-  const router = useRouter();
+  const { push } = useRouter();
   const { theme, setTheme } = useTheme();
-  const [themeMounted, setThemeMounted] = useState(false);
+  const themeMounted = useThemeMounted();
   const [activeTab, setActiveTab] = useState<DashboardTab>('forms');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [cloningTemplateId, setCloningTemplateId] = useState<string | null>(null);
 
-  useEffect(() => {
-    setThemeMounted(true);
-  }, []);
-
-  // Close mobile menu on tab change
-  useEffect(() => {
+  const handleTabChange = useCallback((tab: DashboardTab) => {
+    setActiveTab(tab);
     setIsMobileMenuOpen(false);
-  }, [activeTab]);
+  }, []);
 
   // Authentication and Session Check
   const { 
@@ -44,16 +41,16 @@ export default function DashboardPage() {
   // Redirect if not logged in after session loading completes
   useEffect(() => {
     if (!sessionLoading && !user) {
-      router.push("/login");
+      push("/login");
     }
-  }, [user, sessionLoading, router]);
+  }, [user, sessionLoading, push]);
 
   // Logout Mutation
   const logoutMutation = trpc.auth.logout.useMutation({
     onSuccess: () => {
       toast.success("Successfully logged out.");
       refetchSession();
-      router.push("/");
+      push("/");
     },
     onError: (err) => {
       toast.error(err.message || "Failed to log out.");
@@ -84,7 +81,7 @@ export default function DashboardPage() {
   const createFormFromTemplate = trpc.form.createFormFromTemplate.useMutation({
     onSuccess: (data) => {
       toast.success("Successfully created form from template!");
-      router.push(`/dashboard/form/${data.form.id}`);
+      push(`/dashboard/form/${data.form.id}`);
     },
     onError: (err) => {
       toast.error(err.message || "Failed to create form from template.");
@@ -100,8 +97,8 @@ export default function DashboardPage() {
   if (sessionLoading || !user) {
     return (
       <div className="h-screen bg-white dark:bg-neutral-950 flex flex-col items-center justify-center gap-4">
-        <Loader2 className="h-10 w-10 text-primary animate-spin" />
-        <span className="text-sm font-semibold text-neutral-500">Checking session status...</span>
+        <Loader2 className="size-10 text-primary animate-spin" />
+        <span className="text-sm font-semibold text-neutral-500">Checking session status…</span>
       </div>
     );
   }
@@ -121,7 +118,9 @@ export default function DashboardPage() {
 
       <div className="flex-1 flex overflow-hidden">
         {isMobileMenuOpen && (
-          <div 
+          <button 
+            type="button"
+            aria-label="Close menu"
             className="fixed inset-0 bg-neutral-950/40 backdrop-blur-sm z-30 md:hidden animate-in fade-in duration-200" 
             onClick={() => setIsMobileMenuOpen(false)}
           />
@@ -129,7 +128,7 @@ export default function DashboardPage() {
 
         <DashboardSidebar 
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={handleTabChange}
           isMobileOpen={isMobileMenuOpen}
         />
 

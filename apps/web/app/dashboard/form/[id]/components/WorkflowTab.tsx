@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useRef } from 'react';
 import { Copy, Trash2, Sliders } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import { useForm } from 'react-hook-form';
@@ -70,10 +70,12 @@ export function WorkflowTab({
     },
   });
 
-  const { reset, watch } = formMethods;
+  const { reset } = formMethods;
 
-  // Sync form with external data updates
-  useEffect(() => {
+  const prevFormRef = useRef(form);
+
+  if (form !== prevFormRef.current) {
+    prevFormRef.current = form;
     reset({
       title: form.title,
       description: form.description || null,
@@ -84,7 +86,7 @@ export function WorkflowTab({
       notifyRespondent: form.notifyRespondent,
       theme: form.theme || 'default',
     });
-  }, [form, reset]);
+  }
 
   return (
     <div className="flex-1 bg-[#f9f9fb] dark:bg-neutral-955 p-10 overflow-y-auto">

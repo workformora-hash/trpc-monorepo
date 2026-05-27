@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useLayoutEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useThemeMounted } from '~/hooks/use-theme-mounted';
-import { useRouter, useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 
@@ -13,7 +13,7 @@ import { useAuthRedirect } from '~/hooks/use-auth-redirect';
 
 
 import { trpc } from '~/trpc/client';
-import { FormHeader, type FormTab } from './components/FormHeader';
+import { FormHeader } from './components/FormHeader';
 import { WorkflowTab } from './components/WorkflowTab';
 import { LogicRulesBuilder } from './components/LogicRulesBuilder';
 import { FormField } from '@repo/database';
@@ -27,11 +27,9 @@ import { FormBuilderLoadingState } from './components/FormBuilderLoadingState';
 import { FormPreviewModal } from './components/FormPreviewModal';
 
 export default function FormBuilderPage() {
-  const router = useRouter();
   const params = useParams();
   const formId = params?.id as string;
   const { theme, setTheme } = useTheme();
-  const utils = trpc.useUtils();
   const themeMounted = useThemeMounted();
   const { user, sessionLoading } = useAuthRedirect();
 
@@ -77,8 +75,8 @@ export default function FormBuilderPage() {
     initialActiveChoices: activeChoices,
   } = useFormBuilderState({ selectedFields, formDetails });
 
-  const labelRef = useTextareaAutoResize(localLabel, [activeFieldId]);
-  const descRef = useTextareaAutoResize(localDescription, [activeFieldId]);
+  const labelRef = useTextareaAutoResize(localLabel, activeFieldId);
+  const descRef = useTextareaAutoResize(localDescription, activeFieldId);
 
   const {
     editFormMutation,

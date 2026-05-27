@@ -33,7 +33,7 @@ function LoginFormContent({
   className,
   ...props
 }: React.ComponentProps<"form">) {
-  const router = useRouter()
+  const { push, refresh } = useRouter()
   const searchParams = useSearchParams()
   const code = searchParams.get("code")
   const googleLoginTriggered = useRef(false)
@@ -55,8 +55,8 @@ function LoginFormContent({
     onSuccess: (data) => {
       if (data.success) {
         toast.success(`Welcome back, ${data.user.name}!`)
-        router.push("/dashboard")
-        router.refresh()
+        push("/dashboard")
+        refresh()
       } else {
         toast.error("Google authentication failed. Please try again.")
       }
@@ -75,7 +75,7 @@ function LoginFormContent({
       googleLoginTriggered.current = true
       loginWithGoogleMutation.mutate({ code })
     }
-  }, [code])
+  }, [code, loginWithGoogleMutation])
 
   const handleGoogleLogin = async () => {
     const loadingToast = toast.loading("Connecting to Google...")
@@ -99,8 +99,8 @@ function LoginFormContent({
     onSuccess: (data) => {
       if (data.success) {
         toast.success(`Welcome back, ${data.user.name}!`)
-        router.push("/dashboard")
-        router.refresh()
+        push("/dashboard")
+        refresh()
       }
     },
     onError: (error) => {
@@ -119,7 +119,7 @@ function LoginFormContent({
         <div className="size-10 animate-spin rounded-full border-4 border-primary border-t-transparent mb-2" />
         <h1 className="text-xl font-bold">Verifying Google Account</h1>
         <p className="text-sm text-balance text-muted-foreground">
-          Please wait while we establish your secure session...
+          Please wait while we establish your secure session…
         </p>
       </div>
     )
@@ -173,7 +173,7 @@ function LoginFormContent({
         </Field>
         <Field>
           <Button type="submit" disabled={loginMutation.isPending}>
-            {loginMutation.isPending ? "Logging in..." : "Login"}
+            {loginMutation.isPending ? "Logging in…" : "Login"}
           </Button>
         </Field>
         <FieldSeparator>Or continue with</FieldSeparator>
@@ -219,7 +219,7 @@ export function LoginForm(props: React.ComponentProps<"form">) {
       fallback={
         <div className="flex flex-col items-center justify-center p-6 text-center">
           <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="mt-4 text-sm text-muted-foreground">Loading login form...</p>
+          <p className="mt-4 text-sm text-muted-foreground">Loading login form…</p>
         </div>
       }
     >

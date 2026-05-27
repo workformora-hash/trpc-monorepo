@@ -1,8 +1,5 @@
-'use client';
-
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useRef, memo } from 'react';
 import { useFormBuilderContext } from '../FormBuilderContext';
-import { SettingsToggleRow } from './ui/SettingsToggleRow';
 import { SidebarSection, SectionLabel } from './ui/SidebarPrimitives';
 import { type ActiveValidationType } from '../QuestionEditor';
 
@@ -10,17 +7,25 @@ export const ValidationSettings = memo(() => {
   const { activeField, activeValidation: rawActiveValidation, editFormFieldMutation } = useFormBuilderContext();
   const activeValidation = rawActiveValidation as ActiveValidationType;
 
-  const [localMinLength, setLocalMinLength] = useState<number | "">((activeValidation?.minLength as number) ?? "");
-  const [localMaxLength, setLocalMaxLength] = useState<number | "">((activeValidation?.maxLength as number) ?? "");
-  const [localMin, setLocalMin] = useState<number | "">((activeValidation?.min as number) ?? "");
-  const [localMax, setLocalMax] = useState<number | "">((activeValidation?.max as number) ?? "");
+  const [localRules, setLocalRules] = useState({
+    minLength: ((activeValidation?.minLength as number) ?? "") as number | "",
+    maxLength: ((activeValidation?.maxLength as number) ?? "") as number | "",
+    min: ((activeValidation?.min as number) ?? "") as number | "",
+    max: ((activeValidation?.max as number) ?? "") as number | "",
+  });
 
-  useEffect(() => {
-    setLocalMinLength((activeValidation?.minLength as number) ?? "");
-    setLocalMaxLength((activeValidation?.maxLength as number) ?? "");
-    setLocalMin((activeValidation?.min as number) ?? "");
-    setLocalMax((activeValidation?.max as number) ?? "");
-  }, [activeValidation?.minLength, activeValidation?.maxLength, activeValidation?.min, activeValidation?.max]);
+  const prevFieldIdRef = useRef<string | null>(null);
+  const currentFieldId = activeField?.id || null;
+
+  if (currentFieldId !== prevFieldIdRef.current) {
+    prevFieldIdRef.current = currentFieldId;
+    setLocalRules({
+      minLength: ((activeValidation?.minLength as number) ?? "") as number | "",
+      maxLength: ((activeValidation?.maxLength as number) ?? "") as number | "",
+      min: ((activeValidation?.min as number) ?? "") as number | "",
+      max: ((activeValidation?.max as number) ?? "") as number | "",
+    });
+  }
 
   if (!activeField) return null;
 
@@ -46,9 +51,9 @@ export const ValidationSettings = memo(() => {
                   <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-tight">Min Length</label>
                   <input 
                     type="number" 
-                    value={localMinLength}
-                    onChange={(e) => setLocalMinLength(e.target.value === "" ? "" : parseInt(e.target.value, 10))}
-                    onBlur={() => updateValidation({ minLength: localMinLength === "" ? undefined : localMinLength })}
+                    value={localRules.minLength}
+                    onChange={(e) => setLocalRules(prev => ({ ...prev, minLength: e.target.value === "" ? "" : parseInt(e.target.value, 10) }))}
+                    onBlur={() => updateValidation({ minLength: localRules.minLength === "" ? undefined : localRules.minLength })}
                     className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-1.5 text-xs"
                     placeholder="None"
                   />
@@ -57,9 +62,9 @@ export const ValidationSettings = memo(() => {
                   <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-tight">Max Length</label>
                   <input 
                     type="number" 
-                    value={localMaxLength}
-                    onChange={(e) => setLocalMaxLength(e.target.value === "" ? "" : parseInt(e.target.value, 10))}
-                    onBlur={() => updateValidation({ maxLength: localMaxLength === "" ? undefined : localMaxLength })}
+                    value={localRules.maxLength}
+                    onChange={(e) => setLocalRules(prev => ({ ...prev, maxLength: e.target.value === "" ? "" : parseInt(e.target.value, 10) }))}
+                    onBlur={() => updateValidation({ maxLength: localRules.maxLength === "" ? undefined : localRules.maxLength })}
                     className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-1.5 text-xs"
                     placeholder="None"
                   />
@@ -74,9 +79,9 @@ export const ValidationSettings = memo(() => {
                 <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-tight">Min Value</label>
                 <input 
                   type="number" 
-                  value={localMin}
-                  onChange={(e) => setLocalMin(e.target.value === "" ? "" : parseInt(e.target.value, 10))}
-                  onBlur={() => updateValidation({ min: localMin === "" ? undefined : localMin })}
+                  value={localRules.min}
+                  onChange={(e) => setLocalRules(prev => ({ ...prev, min: e.target.value === "" ? "" : parseInt(e.target.value, 10) }))}
+                  onBlur={() => updateValidation({ min: localRules.min === "" ? undefined : localRules.min })}
                   className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-1.5 text-xs"
                 />
               </div>
@@ -84,9 +89,9 @@ export const ValidationSettings = memo(() => {
                 <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-tight">Max Value</label>
                 <input 
                   type="number" 
-                  value={localMax}
-                  onChange={(e) => setLocalMax(e.target.value === "" ? "" : parseInt(e.target.value, 10))}
-                  onBlur={() => updateValidation({ max: localMax === "" ? undefined : localMax })}
+                  value={localRules.max}
+                  onChange={(e) => setLocalRules(prev => ({ ...prev, max: e.target.value === "" ? "" : parseInt(e.target.value, 10) }))}
+                  onBlur={() => updateValidation({ max: localRules.max === "" ? undefined : localRules.max })}
                   className="w-full bg-neutral-50 dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 py-1.5 text-xs"
                 />
               </div>

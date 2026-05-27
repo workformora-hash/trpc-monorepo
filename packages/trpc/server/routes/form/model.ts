@@ -888,6 +888,15 @@ export const duplicateFormFieldInputModel = z.object({
 
 export const duplicateFormFieldOutputModel = formFieldModel;
 
+export const getCloudinarySignatureInputModel = z.object({}).optional();
+export const getCloudinarySignatureOutputModel = z.object({
+  signature: z.string(),
+  timestamp: z.number(),
+  folder: z.string(),
+  apiKey: z.string(),
+  cloudName: z.string(),
+});
+
 
 
 

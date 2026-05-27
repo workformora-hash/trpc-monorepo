@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, Suspense } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { toast } from "sonner"
 import { useForm } from "react-hook-form"
@@ -48,7 +48,6 @@ function ResetPasswordFormContent({
   ...props
 }: React.ComponentProps<"form">) {
   const searchParams = useSearchParams()
-  const router = useRouter()
   const token = searchParams.get("token")
 
   const [isSuccess, setIsSuccess] = useState(false)

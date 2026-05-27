@@ -6,26 +6,7 @@ import { useFormBuilderContext } from './FormBuilderContext';
 
 export function FormBuilderContentTab() {
   const {
-    selectedFields,
-    activeFieldId,
-    setActiveFieldId,
-    deleteFormFieldMutation,
-    handleAddNewField,
-    handleReorderFields,
     activeField,
-    activeFieldIndex,
-    localLabel,
-    setLocalLabel,
-    localDescription,
-    setLocalDescription,
-    localChoices,
-    setLocalChoices,
-    labelRef,
-    descRef,
-    editFormFieldMutation,
-    handleUpdateChoice,
-    handleAddChoice,
-    handleDeleteChoice,
     selectedForm,
   } = useFormBuilderContext();
 

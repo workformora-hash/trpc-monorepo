@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { trpc } from "~/trpc/client";
 import { FormLoading } from "~/components/form-filler/FormLoading";
@@ -44,7 +44,7 @@ export default function PublicFormPage() {
     try {
       await verifyPasswordMutation.mutateAsync({ slug, password });
       setPasswordVerified(true);
-    } catch (err) {
+    } catch {
       // Error handled by mutation
     }
   };
@@ -74,7 +74,11 @@ export default function PublicFormPage() {
     transition(() => {
       setSlideDir('forward');
       if (currentIndex === -1) {
-        questions.length === 0 ? setSubmitted(true) : setCurrentIndex(0);
+        if (questions.length === 0) {
+          setSubmitted(true);
+        } else {
+          setCurrentIndex(0);
+        }
       } else if (currentIndex >= questions.length - 1) {
         setSubmitted(true);
       } else {

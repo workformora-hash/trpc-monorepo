@@ -6,10 +6,13 @@ import { SidebarSection, SectionLabel } from './ui/SidebarPrimitives';
 import { ImageIcon, Trash2, Upload } from 'lucide-react';
 import { type ActiveValidationType } from '../QuestionEditor';
 import { toast } from 'sonner';
+import { trpc } from '~/trpc/client';
 
 export const MediaSettings = memo(() => {
   const { activeField, activeValidation: rawActiveValidation, editFormFieldMutation } = useFormBuilderContext();
   const activeValidation = rawActiveValidation as ActiveValidationType;
+
+  const getSignatureMutation = trpc.form.getCloudinarySignature.useMutation();
 
   if (!activeField) return null;
 
@@ -19,15 +22,32 @@ export const MediaSettings = memo(() => {
 
     const loadingToast = toast.loading(`Uploading ${type}...`);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      // 1. Get signed Cloudinary credentials from the backend secure server via tRPC
+      const signatureData = await getSignatureMutation.mutateAsync({});
+
+      // 2. Upload file directly from browser to Cloudinary
+      const cloudinaryFormData = new FormData();
+      cloudinaryFormData.append('file', file);
+      cloudinaryFormData.append('api_key', signatureData.apiKey);
+      cloudinaryFormData.append('timestamp', String(signatureData.timestamp));
+      cloudinaryFormData.append('folder', signatureData.folder);
+      cloudinaryFormData.append('signature', signatureData.signature);
+
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${signatureData.cloudName}/image/upload`, {
+        method: 'POST',
+        body: cloudinaryFormData,
+      });
+
+      if (!res.ok) {
+        throw new Error("Direct Cloudinary upload failed");
+      }
+
       const data = await res.json();
       
-      if (data.url) {
+      if (data.secure_url) {
         const updates = type === 'image' 
-          ? { imageUrl: data.url, imageLayout: 'top' }
-          : { bgImageUrl: data.url, bgImageBrightness: 100 };
+          ? { imageUrl: data.secure_url, imageLayout: 'top' }
+          : { bgImageUrl: data.secure_url, bgImageBrightness: 100 };
         
         editFormFieldMutation.mutate({
           id: activeField.id,
@@ -35,7 +55,7 @@ export const MediaSettings = memo(() => {
         });
         toast.success(`${type} uploaded!`);
       }
-    } catch (err) {
+    } catch {
       toast.error("Upload failed");
     } finally {
       toast.dismiss(loadingToast);

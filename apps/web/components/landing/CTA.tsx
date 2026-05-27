@@ -5,7 +5,7 @@ import { ArrowRight } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import { trpc } from '~/trpc/client';
 
-export function CTA() {
+export function CallToAction() {
   const { data: userSession } = trpc.auth.getCurrentUser.useQuery();
   const user = userSession?.user;
 
@@ -22,7 +22,7 @@ export function CTA() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link href={user ? "/dashboard" : "/signup"} className="w-full sm:w-auto">
             <Button className="bg-primary hover:bg-primary/90 text-primary-foreground h-11 px-6 gap-2 w-full sm:w-auto">
-              {user ? "Go to Dashboard" : "Get started free"} <ArrowRight className="h-4 w-4" />
+              {user ? "Go to Dashboard" : "Get started free"} <ArrowRight className="size-4" />
             </Button>
           </Link>
           <a href="#pricing" className="w-full sm:w-auto">

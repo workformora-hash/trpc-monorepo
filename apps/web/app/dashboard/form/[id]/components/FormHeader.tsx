@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Sun, Moon, Eye, Loader2, ChevronRight, Zap, Globe, Check } from 'lucide-react';
+import { Sun, Moon, Eye, Loader2, ChevronRight, Zap, Globe } from 'lucide-react';
 
 export type FormTab = 'content' | 'logic' | 'workflow' | 'connect' | 'share' | 'results';
 
@@ -34,7 +34,7 @@ const TAB_CONFIG: { id: FormTab; label: string }[] = [
 ];
 
 export function FormHeader({
-  formId,
+  formId: _formId,
   formTitle,
   isPublished,
   activeTab,
@@ -51,13 +51,23 @@ export function FormHeader({
   isSaving,
 }: FormHeaderProps) {
   const [editingTitle, setEditingTitle] = useState(false);
-  const [localTitle, setLocalTitle] = useState(formTitle);
+  const [draftTitle, setDraftTitle] = useState<string | null>(null);
+  const localTitle = draftTitle ?? formTitle;
+
+  const inputRef = useCallback((node: HTMLInputElement | null) => {
+    if (node) {
+      node.focus();
+      node.select();
+    }
+  }, []);
 
   const handleTitleBlur = () => {
     setEditingTitle(false);
-    const trimmed = localTitle.trim();
-    if (trimmed && trimmed !== formTitle) onTitleChange(trimmed);
-    else setLocalTitle(formTitle);
+    if (draftTitle !== null) {
+      const trimmed = draftTitle.trim();
+      if (trimmed && trimmed !== formTitle) onTitleChange(trimmed);
+      setDraftTitle(null);
+    }
   };
 
   return (
@@ -75,16 +85,16 @@ export function FormHeader({
 
         {editingTitle ? (
           <input
-            autoFocus
+            ref={inputRef}
             value={localTitle}
-            onChange={(e) => setLocalTitle(e.target.value)}
+            onChange={(e) => setDraftTitle(e.target.value)}
             onBlur={handleTitleBlur}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleTitleBlur(); if (e.key === 'Escape') { setLocalTitle(formTitle); setEditingTitle(false); } }}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleTitleBlur(); if (e.key === 'Escape') { setDraftTitle(null); setEditingTitle(false); } }}
             className="text-xs font-bold text-neutral-800 dark:text-neutral-100 bg-transparent border-b border-primary focus:outline-none px-1 min-w-0 max-w-[200px]"
           />
         ) : (
           <button
-            onClick={() => { setLocalTitle(formTitle); setEditingTitle(true); }}
+            onClick={() => { setDraftTitle(null); setEditingTitle(true); }}
             className="text-xs font-bold text-neutral-700 dark:text-neutral-200 hover:text-neutral-900 dark:hover:text-white truncate max-w-[180px] text-left transition-colors group flex items-center gap-1.5"
             title="Click to rename"
           >

@@ -3,9 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { 
-  Globe, Search, Loader2, Calendar, FileText, ChevronRight, Sparkles 
+  Globe, Search, Loader2, Calendar, FileText, ChevronRight 
 } from 'lucide-react';
-import { Button } from '~/components/ui/button';
 import { trpc } from '~/trpc/client';
 import { Navbar } from '~/components/landing/Navbar';
 import { Footer } from '~/components/landing/Footer';

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { memo } from "react";
-import { Check, Star, AlertCircle, Loader2, Globe } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import type { FormField, ThemeStyles } from "./types";
 
 // Modular Input Components
@@ -22,6 +22,35 @@ interface QuestionSlideProps {
   onChange: (value: unknown) => void;
   onNext: () => void;
 }
+
+const FieldInput = ({ field, value, styles, onChange }: { field: FormField; value: unknown; styles: ThemeStyles; onChange: (value: unknown) => void }) => {
+  const props = { field, value, styles, onChange };
+  
+  switch (field.type) {
+    case "short_text":
+    case "long_text":
+    case "email":
+      return <TextInput {...props} />;
+    case "number":
+      return <NumberInput {...props} />;
+    case "single_select":
+    case "multi_select":
+    case "dropdown":
+      return <SelectionInput {...props} />;
+    case "rating":
+      return <RatingInput {...props} />;
+    case "yes_no":
+      return <BooleanInput {...props} />;
+    case "date":
+    case "checkbox":
+    case "contact_info":
+    case "address":
+    case "website":
+      return <UtilityInputs {...props} />;
+    default:
+      return <div className="text-neutral-400 italic">Input type {field.type} coming soon…</div>;
+  }
+};
 
 export const QuestionSlide = memo(({
   field,
@@ -53,35 +82,6 @@ export const QuestionSlide = memo(({
     borderWidth: (cardBgColor || bgGradient || hasBgImage || isJapaneseTheme) ? (isJapaneseTheme && hasBgImage ? '0' : '1px') : undefined,
     padding: (cardBgColor || bgGradient || hasBgImage || isJapaneseTheme) ? '3rem 3.5rem' : undefined,
     borderRadius: isJapaneseTheme ? '4px' : ((cardBgColor || bgGradient || hasBgImage) ? '1.5rem' : undefined),
-  };
-
-  const renderInput = () => {
-    const props = { field, value, styles, onChange };
-    
-    switch (field.type) {
-      case "short_text":
-      case "long_text":
-      case "email":
-        return <TextInput {...props} />;
-      case "number":
-        return <NumberInput {...props} />;
-      case "single_select":
-      case "multi_select":
-      case "dropdown":
-        return <SelectionInput {...props} />;
-      case "rating":
-        return <RatingInput {...props} />;
-      case "yes_no":
-        return <BooleanInput {...props} />;
-      case "date":
-      case "checkbox":
-      case "contact_info":
-      case "address":
-      case "website":
-        return <UtilityInputs {...props} />;
-      default:
-        return <div className="text-neutral-400 italic">Input type {field.type} coming soon...</div>;
-    }
   };
 
   return (
@@ -126,7 +126,7 @@ export const QuestionSlide = memo(({
           </div>
 
           <div className="pl-8">
-            {renderInput()}
+            <FieldInput field={field} value={value} styles={styles} onChange={onChange} />
             
             {error && (
               <div className="flex items-center gap-2 mt-4 text-red-500 animate-in shake duration-300">

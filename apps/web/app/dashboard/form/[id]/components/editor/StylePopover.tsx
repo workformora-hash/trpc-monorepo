@@ -2,12 +2,9 @@
 
 import React from "react";
 import { 
-  Palette as PaletteIcon, 
-  ChevronDown, 
   AlignLeft, 
   AlignCenter, 
   AlignRight, 
-  Type 
 } from "lucide-react";
 import { useFormBuilderContext } from "../FormBuilderContext";
 import { type ActiveValidationType } from "../QuestionEditor";

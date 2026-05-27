@@ -3,7 +3,7 @@
 import React, { memo } from "react";
 import type { FieldInputProps } from "../types";
 
-export const BooleanInput = memo(({ field, value, styles, onChange }: FieldInputProps) => {
+export const BooleanInput = memo(({ value, styles, onChange }: FieldInputProps) => {
   return (
     <div className="flex gap-4 py-4 w-full max-w-md">
       {[

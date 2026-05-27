@@ -1,6 +1,6 @@
 import { useRef, useLayoutEffect } from 'react';
 
-export function useTextareaAutoResize(value: string | undefined, dependencies: any[] = []) {
+export function useTextareaAutoResize(value: string | undefined, activeFieldId?: string | null) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const resizeTextarea = (textarea: HTMLTextAreaElement | null) => {
@@ -22,7 +22,7 @@ export function useTextareaAutoResize(value: string | undefined, dependencies: a
     if (value !== undefined) {
       resizeTextarea(textareaRef.current);
     }
-  }, [value, ...dependencies]);
+  }, [value, activeFieldId]);
 
   return textareaRef;
 }

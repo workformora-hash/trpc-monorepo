@@ -71,7 +71,7 @@ export function SignupForm({
   });
 
   const handleGoogleSignup = async () => {
-    const loadingToast = toast.loading("Connecting to Google...")
+    const loadingToast = toast.loading("Connecting to Google…")
     try {
       const data = await api.auth.getGoogleAuthUrl.query()
       toast.dismiss(loadingToast)
@@ -215,7 +215,7 @@ export function SignupForm({
         </Field>
         <Field>
           <Button type="submit" disabled={signupMutation.isPending}>
-            {signupMutation.isPending ? "Creating Account..." : "Create Account"}
+            {signupMutation.isPending ? "Creating Account…" : "Create Account"}
           </Button>
         </Field>
         <FieldSeparator>Or continue with</FieldSeparator>

@@ -37,8 +37,8 @@ export function ResponseDetailsModal({
       <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200 dark:border-neutral-800 shadow-2xl w-full max-w-lg p-6 space-y-5 animate-scaleIn text-left">
         <div className="flex items-center justify-between border-b pb-2">
           <span className="text-xs font-bold text-neutral-400 uppercase">Submissions Details</span>
-          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 focus:outline-none">
-            <X className="h-4 w-4" />
+          <button type="button" onClick={onClose} className="text-neutral-400 hover:text-neutral-600 focus:outline-none">
+            <X className="size-4" />
           </button>
         </div>
 

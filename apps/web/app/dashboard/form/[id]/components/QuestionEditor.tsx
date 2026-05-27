@@ -1,13 +1,10 @@
 'use client';
 
 import React from "react";
+import Image from "next/image";
 import {
-  Trash2,
   Palette as PaletteIcon,
-  X,
-  Layers,
 } from "lucide-react";
-import { toast } from "sonner";
 import { getBgImageStyles } from '~/utils/image-styles';
 import { useFormBuilderContext } from './FormBuilderContext';
 
@@ -100,6 +97,9 @@ const QuestionEditor = React.memo(() => {
     padding: (cardBgColor || bgGradient || hasBgImage || isJapaneseTheme) ? '3rem 3.5rem' : '3.5rem 4rem',
     borderRadius: isJapaneseTheme ? '4px' : ((cardBgColor || bgGradient || hasBgImage) ? '1.5rem' : '2rem'),
   };
+  const mainStyle: React.CSSProperties = {
+    ...(bgGradient ? { backgroundImage: bgGradient } : {}),
+  };
 
   return (
     <main 
@@ -109,10 +109,13 @@ const QuestionEditor = React.memo(() => {
       {/* Background Image Preview in Editor */}
       {hasBgImage && (
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-          <img 
+          <Image 
             src={bgImageUrl} 
             alt="" 
-            style={{ ...getBgImageStyles(activeValidation), width: '100%', height: '100%' }}
+            unoptimized
+            fill
+            sizes="100vw"
+            style={{ ...getBgImageStyles(activeValidation) }}
             className="w-full h-full object-cover" 
           />
         </div>
@@ -127,7 +130,7 @@ const QuestionEditor = React.memo(() => {
               <path d="M24,2 L26,2 L26,10 L24,10 Z" />
             </svg>
           </div>
-          <div className="absolute top-[20%] right-[2%] w-48 h-48 opacity-[0.015] text-[#2C1810]">
+          <div className="absolute top-[20%] right-[2%] size-48 opacity-[0.015] text-[#2C1810]">
             <svg viewBox="0 0 100 100" fill="currentColor" className="w-full h-full">
                <path d="M50,95 L70,95 L70,98 L30,98 L30,95 L50,95 Z M45,95 L48,80 Q40,75 35,60 Q30,45 38,30 Q45,15 60,25 Q75,35 65,55 Q55,75 52,80 L55,95 Z" />
                <path d="M38,30 Q25,25 20,40 Q15,55 30,50 Z" />
@@ -194,11 +197,12 @@ const QuestionEditor = React.memo(() => {
             {/* Template Trigger */}
             <div className="absolute top-6 left-6">
               <button
+                type="button"
                 onClick={() => setShowTemplateModal(true)}
                 className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-400 hover:text-primary transition-all shadow-xs"
                 title="Browse design templates"
               >
-                <PaletteIcon className="h-5 w-5" />
+                <PaletteIcon className="size-5" />
               </button>
             </div>
 
@@ -206,13 +210,14 @@ const QuestionEditor = React.memo(() => {
               {/* Title Section */}
               <div className="relative group/title">
                 <div className="absolute -right-10 top-0 opacity-0 group-hover/title:opacity-100 transition-opacity">
-                  <button onClick={() => setActivePopover('title')} className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm text-neutral-400 hover:text-primary">
-                    <PaletteIcon className="h-3.5 w-3.5" />
+                  <button type="button" onClick={() => setActivePopover('title')} className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm text-neutral-400 hover:text-primary">
+                    <PaletteIcon className="size-3.5" />
                   </button>
                 </div>
                 {activePopover === 'title' && <StylePopover type="title" onClose={() => setActivePopover(null)} />}
                 <textarea
                   ref={labelRef}
+                  aria-label="Question label"
                   value={localLabel}
                   onChange={(e) => setLocalLabel(e.target.value)}
                   onBlur={() => {
@@ -228,20 +233,21 @@ const QuestionEditor = React.memo(() => {
                     fontWeight: activeValidation.labelFontWeight || undefined,
                     textAlign: activeValidation.labelAlignment || 'left',
                   } as React.CSSProperties}
-                  placeholder="Enter your question..."
+                  placeholder="Enter your question…"
                 />
               </div>
 
               {/* Description Section */}
               <div className="relative group/desc">
                 <div className="absolute -right-10 top-0 opacity-0 group-hover/desc:opacity-100 transition-opacity">
-                  <button onClick={() => setActivePopover('description')} className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm text-neutral-400 hover:text-primary">
-                    <PaletteIcon className="h-3.5 w-3.5" />
+                  <button type="button" onClick={() => setActivePopover('description')} className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm text-neutral-400 hover:text-primary">
+                    <PaletteIcon className="size-3.5" />
                   </button>
                 </div>
                 {activePopover === 'description' && <StylePopover type="description" onClose={() => setActivePopover(null)} />}
                 <textarea
                   ref={descRef}
+                  aria-label="Question subtitle"
                   value={localDescription}
                   onChange={(e) => setLocalDescription(e.target.value)}
                   onBlur={() => {
@@ -257,7 +263,7 @@ const QuestionEditor = React.memo(() => {
                     fontWeight: activeValidation.descriptionFontWeight || undefined,
                     textAlign: activeValidation.descriptionAlignment || 'left',
                   } as React.CSSProperties}
-                  placeholder="Add a subtitle (optional)..."
+                  placeholder="Add a subtitle (optional)…"
                 />
               </div>
 
@@ -273,8 +279,8 @@ const QuestionEditor = React.memo(() => {
               <div className="flex items-center justify-between">
                 <h4 className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Media & Assets</h4>
                 <div className="flex gap-2">
-                   <button className="text-[10px] font-bold uppercase text-primary hover:underline">Add Image</button>
-                   <button className="text-[10px] font-bold uppercase text-primary hover:underline">Add Background</button>
+                   <button type="button" className="text-[10px] font-bold uppercase text-primary hover:underline">Add Image</button>
+                   <button type="button" className="text-[10px] font-bold uppercase text-primary hover:underline">Add Background</button>
                 </div>
               </div>
             </div>

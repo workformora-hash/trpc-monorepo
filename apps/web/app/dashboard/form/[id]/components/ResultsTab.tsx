@@ -10,10 +10,8 @@ import {
   MapPin, 
   Clock, 
   Compass, 
-  FileSpreadsheet, 
   AlertTriangle,
   Globe,
-  User,
   Trash
 } from 'lucide-react';
 
@@ -92,7 +90,7 @@ export function ResultsTab({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b dark:border-neutral-850 pb-5">
           <div className="text-left">
             <h2 className="text-xl font-extrabold text-neutral-800 dark:text-neutral-100 flex items-center gap-2">
-              <Compass className="h-5 w-5 text-primary" />
+              <Compass className="size-5 text-primary" />
               <span>Form Submissions & Insights</span>
             </h2>
             <p className="text-xs text-neutral-500 mt-1">
@@ -107,8 +105,8 @@ export function ResultsTab({
               variant="outline"
               className="text-xs font-bold h-9 px-4 border dark:border-neutral-850 flex items-center gap-2"
             >
-              <Download className="h-3.5 w-3.5" />
-              <span>{exporting ? "Exporting..." : "Export to CSV"}</span>
+              <Download className="size-3.5" />
+              <span>{exporting ? "Exporting…" : "Export to CSV"}</span>
             </Button>
             
             <Button
@@ -117,7 +115,7 @@ export function ResultsTab({
               variant="outline"
               className="text-xs font-bold h-9 px-4 border border-red-200 text-red-500 hover:bg-red-50 hover:text-red-650 dark:border-red-950/40 dark:hover:bg-red-955/20 flex items-center gap-2"
             >
-              <Trash className="h-3.5 w-3.5" />
+              <Trash className="size-3.5" />
               <span>Clear Response Log</span>
             </Button>
           </div>
@@ -150,7 +148,7 @@ export function ResultsTab({
           {/* Question Answering Duration Stats */}
           <div className="bg-white dark:bg-neutral-900 border dark:border-neutral-850 border-neutral-205 shadow-sm rounded-2xl p-6 text-left">
             <div className="border-b dark:border-neutral-850 pb-3 mb-4 flex items-center gap-2">
-              <Clock className="h-4.5 w-4.5 text-primary shrink-0" />
+              <Clock className="size-4.5 text-primary shrink-0" />
               <div>
                 <h3 className="text-sm font-bold dark:text-neutral-200 text-neutral-800">Average Answering Speeds</h3>
                 <p className="text-[10px] text-neutral-500">Track which questions take the longest to answer.</p>
@@ -159,11 +157,11 @@ export function ResultsTab({
 
             {durationLoading ? (
               <div className="h-40 flex items-center justify-center text-xs text-neutral-400 animate-pulse">
-                Loading speed analytics...
+                Loading speed analytics…
               </div>
             ) : !durationStats || durationStats.stats.length === 0 ? (
               <div className="h-40 flex flex-col items-center justify-center text-neutral-400 text-xs italic gap-1">
-                <AlertTriangle className="h-5 w-5 text-neutral-300" />
+                <AlertTriangle className="size-5 text-neutral-300" />
                 <span>No duration metrics tracked yet.</span>
               </div>
             ) : (
@@ -196,7 +194,7 @@ export function ResultsTab({
           {/* Geographic distribution stats */}
           <div className="bg-white dark:bg-neutral-900 border dark:border-neutral-850 border-neutral-205 shadow-sm rounded-2xl p-6 text-left">
             <div className="border-b dark:border-neutral-850 pb-3 mb-4 flex items-center gap-2">
-              <Globe className="h-4.5 w-4.5 text-primary shrink-0" />
+              <Globe className="size-4.5 text-primary shrink-0" />
               <div>
                 <h3 className="text-sm font-bold dark:text-neutral-200 text-neutral-800">Geographic Regions</h3>
                 <p className="text-[10px] text-neutral-500">Distribution of successful responses by country.</p>
@@ -205,11 +203,11 @@ export function ResultsTab({
 
             {geoLoading ? (
               <div className="h-40 flex items-center justify-center text-xs text-neutral-400 animate-pulse">
-                Loading geographic distribution...
+                Loading geographic distribution…
               </div>
             ) : !geoDistribution || geoDistribution.countries.length === 0 ? (
               <div className="h-40 flex flex-col items-center justify-center text-neutral-400 text-xs italic gap-1">
-                <MapPin className="h-5 w-5 text-neutral-300" />
+                <MapPin className="size-5 text-neutral-300" />
                 <span>No geographic logs detected.</span>
               </div>
             ) : (
@@ -310,7 +308,7 @@ export function ResultsTab({
                             className="text-[10px] font-bold h-7 px-2.5 bg-white text-red-500 hover:bg-red-50 hover:text-red-650 dark:bg-neutral-900 dark:text-red-400 dark:hover:bg-red-955/20 border border-neutral-200 dark:border-red-950/40"
                             title="Delete response"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="size-3.5" />
                           </Button>
                         </div>
                       </td>

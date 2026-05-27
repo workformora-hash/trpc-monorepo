@@ -34,6 +34,7 @@ describe("FormService - Form Responses & Analytics (Integration)", () => {
         isEmailVerified: true,
       })
       .returning();
+    if (!user) throw new Error("Failed to create test user");
 
     createdUserIds.push(user.id);
     console.log("[createTestUserAndSession] User created:", user.id);
@@ -162,6 +163,8 @@ describe("FormService - Form Responses & Analytics (Integration)", () => {
     console.log("[test] Step 12: List responses after clear...");
     const listAfterClear = await formService.listResponses(token, {
       formId: form.id,
+      limit: 10,
+      offset: 0,
     });
     expect(listAfterClear.responses).toHaveLength(0);
     console.log("[test] List responses after clear success");

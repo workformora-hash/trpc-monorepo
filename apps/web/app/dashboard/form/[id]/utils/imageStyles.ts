@@ -1,4 +1,3 @@
-import React from 'react';
 import type { CSSProperties } from 'react';
 
 type FilterType = 'none' | 'grayscale' | 'sepia' | 'vintage' | 'blur' | 'invert' | 'contrast' | 'warm' | 'cool';

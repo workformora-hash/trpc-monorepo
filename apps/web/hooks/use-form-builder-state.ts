@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { FormTab } from '~/app/dashboard/form/[id]/components/FormHeader';
 import { FormField as DbFormField } from '@repo/database';
 import { getFormByIdCreatorOutputModel } from '@repo/trpc/server/routes/form/model';
@@ -23,7 +23,7 @@ interface UseFormBuilderStateProps {
   formDetails: FormDetails | undefined;
 }
 
-export function useFormBuilderState({ selectedFields, formDetails }: UseFormBuilderStateProps) {
+export function useFormBuilderState({ selectedFields }: UseFormBuilderStateProps) {
   // High-fidelity active states
   const [activeFieldId, setActiveFieldId] = useState<string | null>(null);
   const [activeFormTab, setActiveFormTab] = useState<FormTab>('content');
@@ -45,7 +45,10 @@ export function useFormBuilderState({ selectedFields, formDetails }: UseFormBuil
     ? (activeValidation.choices as string[])
     : ['Choice A', 'Choice B'];
 
-  useEffect(() => {
+  const prevActiveFieldIdRef = useRef<string | null>(null);
+
+  if (activeFieldId !== prevActiveFieldIdRef.current) {
+    prevActiveFieldIdRef.current = activeFieldId;
     if (activeField) {
       setLocalLabel(activeField.label || '');
       const validation = (activeField.validation as Record<string, unknown>) || {};
@@ -56,7 +59,7 @@ export function useFormBuilderState({ selectedFields, formDetails }: UseFormBuil
       setLocalDescription('');
       setLocalChoices([]);
     }
-  }, [activeFieldId, formDetails, selectedFields, activeField]);
+  }
 
   return {
     activeFieldId,

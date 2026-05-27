@@ -110,13 +110,13 @@ const FieldTypeSelector: React.FC<FieldTypeSelectorProps> = React.memo(({ isOpen
                 >
                   <div className="flex items-center gap-3">
                     <span className={`p-1.5 rounded-lg ${item.color} shrink-0`}>
-                      <item.Icon className="h-3.5 w-3.5" />
+                      <item.Icon className="size-3.5" />
                     </span>
                     <span className="text-xs font-semibold text-neutral-750 dark:text-neutral-205 group-hover:text-primary transition-colors">{item.name}</span>
                   </div>
                   {item.premium && (
                     <span className="text-emerald-500 dark:text-emerald-400 p-1 shrink-0">
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <Sparkles className="size-3.5" />
                     </span>
                   )}
                 </button>
@@ -141,13 +141,13 @@ const FieldTypeSelector: React.FC<FieldTypeSelectorProps> = React.memo(({ isOpen
                 >
                   <div className="flex items-center gap-3">
                     <span className={`p-1.5 rounded-lg ${item.color} shrink-0`}>
-                      <item.Icon className="h-3.5 w-3.5" />
+                      <item.Icon className="size-3.5" />
                     </span>
                     <span className="text-xs font-semibold text-neutral-750 dark:text-neutral-205 group-hover:text-primary transition-colors">{item.name}</span>
                   </div>
                   {item.premium && (
                     <span className="text-emerald-500 dark:text-emerald-400 p-1 shrink-0">
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <Sparkles className="size-3.5" />
                     </span>
                   )}
                 </button>
@@ -172,13 +172,13 @@ const FieldTypeSelector: React.FC<FieldTypeSelectorProps> = React.memo(({ isOpen
                 >
                   <div className="flex items-center gap-3">
                     <span className={`p-1.5 rounded-lg ${item.color} shrink-0`}>
-                      <item.Icon className="h-3.5 w-3.5" />
+                      <item.Icon className="size-3.5" />
                     </span>
                     <span className="text-xs font-semibold text-neutral-750 dark:text-neutral-205 group-hover:text-primary transition-colors">{item.name}</span>
                   </div>
                   {item.premium && (
                     <span className="text-emerald-500 dark:text-emerald-400 p-1 shrink-0">
-                      <Sparkles className="h-3.5 w-3.5" />
+                      <Sparkles className="size-3.5" />
                     </span>
                   )}
                 </button>
@@ -197,17 +197,18 @@ const FieldTypeSelector: React.FC<FieldTypeSelectorProps> = React.memo(({ isOpen
         <div className={`bg-white dark:bg-neutral-900 w-full max-w-4xl rounded-3xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden flex flex-col max-h-[90vh] transition-transform duration-300 ${isOpen ? 'scale-100' : 'scale-95'}`}>
           <div className="px-6 py-5 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50/50 dark:bg-neutral-900/50">
             <div className="flex-1 max-w-md relative mr-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
               <input 
                 type="text" 
-                placeholder="Search elements..." 
+                placeholder="Search elements…" 
+                aria-label="Search elements"
                 className="w-full pl-10 pr-4 py-2 rounded-xl bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <button onClick={onClose} className="h-10 w-10 rounded-2xl flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all cursor-pointer">
-              <X className="h-5 w-5" />
+            <button type="button" onClick={onClose} className="size-10 rounded-2xl flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all cursor-pointer">
+              <X className="size-5" />
             </button>
           </div>
           <div className="flex-1 overflow-hidden p-6">

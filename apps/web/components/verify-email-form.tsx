@@ -90,7 +90,7 @@ function VerifyEmailFormContent({
       hasTriggered.current = true
       verifyEmailMutation.mutate({ token })
     }
-  }, [token])
+  }, [token, verifyEmailMutation])
 
   const onSubmit = (values: VerifyEmailFormValues) => {
     resendEmailMutation.mutate({ email: values.email })

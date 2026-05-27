@@ -23,7 +23,7 @@ export const ExploreTab = React.memo(({
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="size-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -44,7 +44,7 @@ export const ExploreTab = React.memo(({
               <p className="text-xs dark:text-neutral-400 text-muted-foreground mt-2 line-clamp-2 leading-relaxed">{form.description || "No description provided."}</p>
             </div>
             <div className="flex items-center justify-between text-[11px] dark:text-neutral-500 text-muted-foreground/80 pt-4 border-t dark:border-neutral-800 border-border">
-              <span>Creator ID: {form.userId.slice(0, 8)}...</span>
+              <span>Creator ID: {form.userId.slice(0, 8)}…</span>
             </div>
           </div>
         ))}

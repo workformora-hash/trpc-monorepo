@@ -1,7 +1,7 @@
 'use client';
 
 import React, { memo } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { Check } from "lucide-react";
 import type { FieldInputProps, FormField } from "../types";
 
 function getChoices(field: FormField): string[] {
@@ -41,7 +41,7 @@ export const SelectionInput = memo(({ field, value, styles, onChange }: FieldInp
             fontFamily: styles.fontFamily,
           }}
         >
-          <option value="" disabled>Select an option...</option>
+          <option value="" disabled>Select an option…</option>
           {choices.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       </div>

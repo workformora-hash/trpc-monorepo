@@ -27,7 +27,7 @@ export const TemplatesTab = React.memo(({
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="size-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -39,16 +39,15 @@ export const TemplatesTab = React.memo(({
         <p className="dark:text-neutral-400 text-muted-foreground text-sm mt-1 leading-relaxed">Select a pre-made form blueprint to jumpstart your workflow and professional design.</p>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6" role="list">
+      <menu className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {templates.map((template) => (
-          <div 
+          <li 
             key={template.id} 
-            role="listitem"
             className="group dark:bg-neutral-900 bg-white border dark:border-neutral-850 border-neutral-200 p-6 rounded-2xl hover:border-primary/50 transition-all flex flex-col justify-between h-64 shadow-xs hover:shadow-md"
           >
             <div>
               <span className="text-[10px] uppercase font-bold text-primary tracking-widest flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3" />
+                <Sparkles className="size-3" />
                 <span>Blueprint</span>
               </span>
               <h3 className="text-base font-semibold dark:text-neutral-100 text-neutral-800 mt-2 line-clamp-1">{template.name}</h3>
@@ -67,20 +66,20 @@ export const TemplatesTab = React.memo(({
               >
                 {cloningTemplateId === template.id ? (
                   <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    <span>Cloning template...</span>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    <span>Cloning template…</span>
                   </>
                 ) : (
                   <>
                     <span>Use this blueprint</span>
-                    <ChevronRight className="h-3.5 w-3.5" />
+                    <ChevronRight className="size-3.5" />
                   </>
                 )}
               </Button>
             </div>
-          </div>
+          </li>
         ))}
-      </div>
+      </menu>
     </div>
   );
 });

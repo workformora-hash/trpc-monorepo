@@ -32,6 +32,7 @@ describe("FormService - Form Fields (Integration)", () => {
         isEmailVerified: true,
       })
       .returning();
+    if (!user) throw new Error("Failed to create test user");
 
     createdUserIds.push(user.id);
 
